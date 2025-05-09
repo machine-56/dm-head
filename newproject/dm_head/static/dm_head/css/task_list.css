@@ -1,0 +1,58 @@
+
+.form-container,
+.table-container {
+    background-color: var(--form-bg);
+    color: #ffffff;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px #00000033;
+}
+
+.table {
+    background-color: var(--form-bg) !important;
+    color: white !important;
+}
+
+.table thead th,
+.table tbody td {
+    background-color: var(--form-bg) !important;
+    color: white !important;
+}
+
+.table thead th {
+    border-bottom: 1px solid white;
+}
+
+.table tbody td {
+    border-bottom: 1px solid white;
+}
+
+.table tbody tr:hover {
+    background-color: #ffffff1a;
+}
+
+
+.breadcrumb {
+    font-size: 1.1rem;
+}
+
+.breadcrumb-item a {
+    color: #ffffffb3;
+    font-weight: 400;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    color: #ffffffe6;
+}
+
+.breadcrumb-item.active {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.modal-header,
+.modal-body,
+.modal-footer {
+    border: none;
+}

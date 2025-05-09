@@ -1,0 +1,1 @@
+from newproject.wsgi import application

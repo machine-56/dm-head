@@ -1,0 +1,13 @@
+
+.modal-content {
+    border: none;
+}
+
+.modal-header, .modal-footer {
+    border: none;
+}
+
+table td{
+    align-content: center;
+    justify-content: center;
+}

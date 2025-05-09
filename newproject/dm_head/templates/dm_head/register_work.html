@@ -1,0 +1,26 @@
+{% extends 'dm_head/dmBase.html' %}
+{% load static %}
+
+{% block title %}Registered Work{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h4>Registered Works</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Edit/Remove</th>
+                <th>Client Name</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Progress</th>
+                <th>Client Required Task List</th>
+                <th>Work Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Loop works here -->
+        </tbody>
+    </table>
+</div>
+{% endblock %}
