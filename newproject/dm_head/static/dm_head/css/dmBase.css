@@ -94,5 +94,7 @@ body {
 }
 
 table td{
-  align-content: center;
+    align-content: center;
+    justify-content: center;
+    padding: 5px !important;
 }
