@@ -61,10 +61,11 @@
                                     <a href="#"
                                        onclick="openEditModal('{{ task.id }}', '{{ task.task_name }}', '{{ task.task_description }}')"
                                        data-bs-toggle="tooltip" title="Edit"
-                                       style="margin-right: 1rem;">
+                                       style="margin-right: 1rem; text-decoration: none;">
                                         <i class="fas fa-pen text-primary"></i>
                                     </a>
-                                    <a href="{% url 'delete_task_main' task.id %}" class="text-danger" data-bs-toggle="tooltip" title="Delete">
+                                    <a href="{% url 'delete_task_main' task.id %}" class="text-danger" data-bs-toggle="tooltip" title="Delete" 
+                                    style="text-decoration: none;">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                     {% else %}
