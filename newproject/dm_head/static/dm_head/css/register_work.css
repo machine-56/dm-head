@@ -23,3 +23,18 @@
 .delete-task-icon:hover {
     color: #a71d2a;
 }
+
+.add-category-btn {
+    margin-left: 10px;
+}
+
+.add-field-link {
+    margin-left: 10px;
+    cursor: pointer;
+    text-decoration: underline;
+    color: #198754;
+}
+
+.add-field-link:hover {
+    color: #0f5132;
+}

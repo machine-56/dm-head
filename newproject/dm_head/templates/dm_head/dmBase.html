@@ -20,7 +20,7 @@
       <button class="btn btn-link me-3">🔔</button>
       <div class="dropdown">
         <a class="d-flex align-items-center text-decoration-none dropdown-toggle text-white" href="#" id="profileDropdown" data-bs-toggle="dropdown">
-          <img src="https://i.pravatar.cc/30" class="rounded-circle me-2" />
+          <img src="{% static 'images/default-profile.png' %}" class="rounded-circle me-2" width="35" height="35">
           <span>{{ employee_profile.name|default:"User" }}</span>
         </a>
         <ul class="dropdown-menu dropdown-menu-end">
@@ -35,7 +35,7 @@
 <div id="sidebar" class="border-end d-none d-md-block">
   <div class="px-3 d-flex justify-content-between align-items-center mb-3">
     <div class="d-flex align-items-center">
-      <img src="https://i.pravatar.cc/50" class="rounded-circle me-2" />
+      <img src="{% static 'images/default-profile.png' %}" class="rounded-circle me-2" width="50" height="50">
       <div>
         <strong class="text-white">{{ employee_profile.name|default:"User" }}</strong><br>
         <small class="text-white">Dm head</small>

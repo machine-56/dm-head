@@ -3,11 +3,14 @@ from django.shortcuts import redirect, render
 from django.contrib import messages
 
 from myapp.models import LogRegister_Details, BusinessRegister_Details, EmployeeRegister_Details
-from .models import Work_Task, ClientRegister, WorkRegister, ClientTask_Register, LeadCategory_Register
+from .models import Work_Task, ClientRegister, WorkRegister, ClientTask_Register, LeadCategory_Register, LeadField_Register
 
 from django.db import models
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+from django.core.files.storage import default_storage
+
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
 # Create your views here.
 
@@ -62,7 +65,7 @@ def task_list(request):
     return render(request, 'dm_head/task_list.html', context)
 
 
-def delete_task(request, task_id):
+def delete_task_main(request, task_id):
     task = Work_Task.objects.get(id=task_id)
     task.delete()
     return redirect('task_list')
@@ -250,44 +253,6 @@ def check_unique_field(request):
     return JsonResponse(response)
 
 
-from django.http import JsonResponse, Http404
-
-def get_client(request, client_id):
-    try:
-        client = ClientRegister.objects.get(id=client_id)
-        data = {
-            'client_name': client.client_name,
-            'client_email_primary': client.client_email_primary,
-            'client_email_alter': client.client_email_alter,
-            'client_phone': client.client_phone,
-            'client_phone_alter': client.client_phone_alter,
-            'client_address1': client.client_address1,
-            'client_address2': client.client_address2,
-            'client_address3': client.client_address3,
-            'client_place': client.client_place,
-            'client_district': client.client_district,
-            'client_state': client.client_state,
-            'client_business_name': client.client_business_name,
-            'client_business_email_primary': client.client_business_email_primary,
-            'client_business_email_alter': client.client_business_email_alter,
-            'client_business_website': client.client_business_website,
-            'client_business_phone': client.client_business_phone,
-            'client_business_phone_alter': client.client_business_phone_alter,
-            'client_business_address1': client.client_business_address1,
-            'client_business_address2': client.client_business_address2,
-            'client_business_address3': client.client_business_address3,
-            'i_client_business_place': client.client_business_place,
-            'i_client_business_district': client.client_business_district,
-            'i_client_business_state': client.client_business_state,
-            'more_description': client.more_description,
-            'company_id': client.company.id if client.company else '9',
-        }
-        return JsonResponse(data)
-    except ClientRegister.DoesNotExist:
-        raise Http404("Client not found")
-
-
-
 @csrf_exempt
 def create_work(request):
     if request.method == 'POST':
@@ -350,6 +315,336 @@ def create_work(request):
     return JsonResponse({'success': False, 'message': 'Invalid request'})
 
 
+# edit work
+@csrf_exempt
+@require_POST
+def edit_work(request):
+    try:
+        work_id = request.POST.get('work_id')
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        description = request.POST.get('description')
+        file = request.FILES.get('work_file')
+
+        work = WorkRegister.objects.get(id=work_id)
+        work.work_create_date = start_date
+        work.work_end_date = end_date
+        work.work_description = description
+
+        if file:
+            if work.work_file:
+                if default_storage.exists(work.work_file.name):
+                    default_storage.delete(work.work_file.name)
+            work.work_file = file
+
+        work.save()
+        return JsonResponse({'success': True, 'message': 'Work updated successfully'})
+
+    except WorkRegister.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Work not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# delete work
+@csrf_exempt
+@require_POST
+def delete_work(request, work_id):
+    try:
+        work = WorkRegister.objects.get(id=work_id)
+        work.delete()
+        return JsonResponse({'success': True, 'message': 'Work deleted successfully'})
+    except WorkRegister.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Work not found'})
+
+# edit task
+
+@csrf_exempt
+@require_POST
+def edit_task(request):
+    try:
+        task_id = request.POST.get('task_id')
+        task_name = request.POST.get('task_name')
+        description = request.POST.get('task_description')
+        file = request.FILES.get('task_file')
+
+        task = ClientTask_Register.objects.get(id=task_id)
+
+        # check if it's common task
+        is_common = Work_Task.objects.filter(task_name=task.task_name, company__isnull=True).exists()
+
+        # allow editing task_name only if it's client specific
+        if not is_common:
+            task.task_name = task_name
+
+        task.task_description = description
+
+        if file:
+            if task.task_file and default_storage.exists(task.task_file.name):
+                default_storage.delete(task.task_file.name)
+            task.task_file = file
+
+        task.save()
+        return JsonResponse({'success': True, 'message': 'Task updated successfully'})
+    except ClientTask_Register.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Task not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# delete task
+
+@csrf_exempt
+@require_POST
+def delete_task(request, task_id):
+    try:
+        task = ClientTask_Register.objects.get(id=task_id)
+        task.delete()
+        return JsonResponse({'success': True, 'message': 'Task deleted successfully'})
+    except ClientTask_Register.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Task not found'})
+
+# add task
+
+@csrf_exempt
+@require_POST
+def add_more_task(request):
+    try:
+        work_id = request.POST.get('work_id')
+        task_type = request.POST.get('task_type')
+        description = request.POST.get('task_description')
+        file = request.FILES.get('task_file')
+
+        work = WorkRegister.objects.get(id=work_id)
+        client = work.client
+        company = work.company
+
+        if task_type == 'client':
+            task_name = request.POST.get('task_name_client').strip()
+
+            # Check if same client-specific task already exists
+            if ClientTask_Register.objects.filter(work=work, task_name__iexact=task_name).exists():
+                return JsonResponse({'success': False, 'message': 'Client task with this name already exists.'})
+
+        else:
+            task_id = request.POST.get('task_name_company')
+            task = Work_Task.objects.get(id=task_id)
+            task_name = task.task_name
+            description = description or task.task_description
+
+        ClientTask_Register.objects.create(
+            company=company,
+            client=client,
+            work=work,
+            task_name=task_name,
+            task_description=description,
+            task_file=file if file else None
+        )
+
+        return JsonResponse({'success': True, 'message': 'Task added successfully'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# add lead category btn
+
+@csrf_exempt
+@require_POST
+def add_lead_category(request):
+    try:
+        task_id = request.POST.get('task_id')
+        collection_for = request.POST.get('collection_for', '').strip()
+        description = request.POST.get('description', '').strip()
+        target = request.POST.get('target') or 0
+        file = request.FILES.get('file')
+
+        if not collection_for:
+            return JsonResponse({'success': False, 'message': 'Collection Head is required.'})
+
+        task = ClientTask_Register.objects.get(id=task_id)
+
+        LeadCategory_Register.objects.create(
+            client_task=task,
+            collection_for=collection_for,
+            description=description,
+            target=target,
+            file=file if file else None,
+        )
+
+        return JsonResponse({'success': True, 'message': 'Lead category added successfully'})
+
+    except ClientTask_Register.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Task not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# edit lead category
+@csrf_exempt
+@require_POST
+def edit_category(request):
+    try:
+        category_id = request.POST.get('category_id')
+        collection_for = request.POST.get('collection_for', '').strip()
+        description = request.POST.get('description', '').strip()
+        target = request.POST.get('target') or 0
+        file = request.FILES.get('file')
+
+        category = LeadCategory_Register.objects.get(id=category_id)
+        category.collection_for = collection_for
+        category.description = description
+        category.target = target
+
+        if file:
+            if category.file and default_storage.exists(category.file.name):
+                default_storage.delete(category.file.name)
+            category.file = file
+
+        category.save()
+        return JsonResponse({'success': True, 'message': 'Category updated successfully'})
+    except LeadCategory_Register.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Category not found'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+# delete lead category
+@csrf_exempt
+@require_POST
+def delete_category(request, category_id):
+    try:
+        category = LeadCategory_Register.objects.get(id=category_id)
+        category.delete()
+        return JsonResponse({'success': True, 'message': 'Category deleted successfully'})
+    except LeadCategory_Register.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Category not found'})
+
+
+# edit fields
+def field_page(request, work_id):
+    try:
+        work = WorkRegister.objects.get(id=work_id)
+        client = work.client
+
+        lead_task = ClientTask_Register.objects.filter(
+            work=work, task_name__iexact="Lead Collection"
+        ).first()
+
+        if not lead_task:
+            return HttpResponse("No 'Lead Collection' task found.", status=404)
+
+        categories = LeadCategory_Register.objects.filter(client_task=lead_task).prefetch_related('leadfield_register_set')
+
+        context = {
+            'work': work,
+            'client': client,
+            'lead_task': lead_task,
+            'categories': categories,
+        }
+        return render(request, 'dm_head/field_page.html', context)
+    except WorkRegister.DoesNotExist:
+        return HttpResponse("Work not found", status=404)
+
+# add field
+@csrf_exempt
+@require_POST
+def add_field(request):
+    try:
+        category_id = request.POST.get('category_id')
+        name = request.POST.get('field_name').strip()
+        description = request.POST.get('description', '').strip()
+
+        category = LeadCategory_Register.objects.get(id=category_id)
+
+        if LeadField_Register.objects.filter(lead_category=category, name__iexact=name).exists():
+            return JsonResponse({'success': False, 'message': 'Field already exists for this category.'})
+
+        LeadField_Register.objects.create(
+            lead_category=category,
+            name=name,
+            description=description
+        )
+
+        return JsonResponse({'success': True, 'message': 'Field added successfully'})
+    except LeadCategory_Register.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Invalid category'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+
+
+
+
+
+
+
+# the gets
+from django.http import JsonResponse, Http404
+
+def get_client(request, client_id):
+    try:
+        client = ClientRegister.objects.get(id=client_id)
+        data = {
+            'client_name': client.client_name,
+            'client_email_primary': client.client_email_primary,
+            'client_email_alter': client.client_email_alter,
+            'client_phone': client.client_phone,
+            'client_phone_alter': client.client_phone_alter,
+            'client_address1': client.client_address1,
+            'client_address2': client.client_address2,
+            'client_address3': client.client_address3,
+            'client_place': client.client_place,
+            'client_district': client.client_district,
+            'client_state': client.client_state,
+            'client_business_name': client.client_business_name,
+            'client_business_email_primary': client.client_business_email_primary,
+            'client_business_email_alter': client.client_business_email_alter,
+            'client_business_website': client.client_business_website,
+            'client_business_phone': client.client_business_phone,
+            'client_business_phone_alter': client.client_business_phone_alter,
+            'client_business_address1': client.client_business_address1,
+            'client_business_address2': client.client_business_address2,
+            'client_business_address3': client.client_business_address3,
+            'i_client_business_place': client.client_business_place,
+            'i_client_business_district': client.client_business_district,
+            'i_client_business_state': client.client_business_state,
+            'more_description': client.more_description,
+            'company_id': client.company.id if client.company else 'None',
+
+        }
+        return JsonResponse(data)
+    except ClientRegister.DoesNotExist:
+        raise Http404("Client not found")
+
+def get_work(request, work_id):
+    try:
+        work = WorkRegister.objects.get(id=work_id)
+        data = {
+            'id': work.id,
+            'start_date': work.work_create_date.isoformat() if work.work_create_date else '',
+            'end_date': work.work_end_date.isoformat() if work.work_end_date else '',
+            'description': work.work_description or '',
+            'work_file_url': work.work_file.url if work.work_file else '',
+        }
+        return JsonResponse(data)
+    except WorkRegister.DoesNotExist:
+        raise Http404("Work not found")
+
+def get_task(request, task_id):
+    try:
+        task = ClientTask_Register.objects.get(id=task_id)
+        # determine if it's a company (common) task
+        is_common = Work_Task.objects.filter(task_name=task.task_name, company__isnull=True).exists()
+
+        data = {
+            'client_name': task.client.client_name if task.client else '',
+            'task_name': task.task_name,
+            'task_description': task.task_description,
+            'task_file_url': task.task_file.url if task.task_file else '',
+            'is_common': is_common,
+        }   
+        return JsonResponse(data)
+    except ClientTask_Register.DoesNotExist:
+        return JsonResponse({'error': 'Task not found'}, status=404)
+
 
 from itertools import chain
 
@@ -358,11 +653,58 @@ def get_available_tasks(request):
     dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
     company = dm_head_profile.company
 
-    lead_tasks = Work_Task.objects.filter(company__isnull=True)
-    company_tasks = Work_Task.objects.filter(company=company)
+    work_id = request.GET.get('work_id')
+    all_tasks = Work_Task.objects.filter(company=company)
 
-    combined_tasks = chain(lead_tasks, company_tasks)
-    task_list = [{'id': t.id, 'name': t.task_name, 'description': t.task_description} for t in combined_tasks]
+    if work_id:
+        existing_task_names = ClientTask_Register.objects.filter(work_id=work_id).values_list('task_name', flat=True)
+        all_tasks = all_tasks.exclude(task_name__in=existing_task_names)
 
+        if not any(task.strip().lower() == "lead collection" for task in existing_task_names):
+            lead_collection = Work_Task.objects.filter(company__isnull=True, task_name="Lead Collection")
+            all_tasks = list(lead_collection) + list(all_tasks)
+    else:
+        lead_collection = Work_Task.objects.filter(company__isnull=True, task_name="Lead Collection")
+        all_tasks = list(lead_collection) + list(all_tasks)
+
+    task_list = [{'id': t.id, 'name': t.task_name, 'description': t.task_description} for t in all_tasks]
     return JsonResponse({'tasks': task_list})
+
+def get_field(request, field_id):
+    try:
+        field = LeadField_Register.objects.get(id=field_id)
+        category = field.category
+        task = category.client_task
+        client = category.client_task.client.client_name,
+
+        return JsonResponse({
+            'name': field.name,
+            'description': field.description or '',
+            'collection_for': category.collection_for,
+            'client_name': client
+        })
+    except LeadField_Register.DoesNotExist:
+        return JsonResponse({'error': 'Field not found'}, status=404)
+
+    
+
+def get_category(request, category_id):
+    try:
+        category = LeadCategory_Register.objects.get(id=category_id)
+        task = category.client_task
+        client = task.client
+
+        data = {
+            'collection_for': category.collection_for,
+            'description': category.description or '',
+            'target': category.target,
+            'file_url': category.file.url if category.file else '',
+            'client_name': client.client_name if client else 'Unknown',
+            'client_business': client.client_business_name if client else '',
+            'category_id': category.id,
+            'task_id': task.id,
+        }
+        return JsonResponse(data)
+    except LeadCategory_Register.DoesNotExist:
+        return JsonResponse({'error': 'Category not found'}, status=404)
 

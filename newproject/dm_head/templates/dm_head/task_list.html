@@ -6,7 +6,7 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'dm_head/css/task_list.css' %}">
 
-<div class="container mt-4">
+<div class="container mt-4 comn_table_bg">
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
@@ -43,7 +43,7 @@
             <div class="table-container">
                 <h5>Task List</h5>
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table table-striped table-dark">
                         <thead>
                             <tr>
                                 <th>No</th>
@@ -64,7 +64,7 @@
                                        style="margin-right: 1rem;">
                                         <i class="fas fa-pen text-primary"></i>
                                     </a>
-                                    <a href="{% url 'delete_task' task.id %}" class="text-danger" data-bs-toggle="tooltip" title="Delete">
+                                    <a href="{% url 'delete_task_main' task.id %}" class="text-danger" data-bs-toggle="tooltip" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                     {% else %}

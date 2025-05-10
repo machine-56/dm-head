@@ -86,4 +86,13 @@ body {
     margin-right: 0 !important;
   }
 }
-  
+
+.comn_table_bg{
+  background-color: var(--table-bg);
+  border-radius: 8px;
+  padding: 2rem 1.5rem;
+}
+
+table td{
+  align-content: center;
+}
