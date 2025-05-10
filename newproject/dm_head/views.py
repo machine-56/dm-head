@@ -15,14 +15,21 @@ from django.views.decorators.http import require_POST
 # Create your views here.
 
 def dm_home(request):
-
     user_id = request.session.get('hid')
     if not user_id:
         return redirect('login')
-    
+
     logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
     user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
     employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+
+    from dm_head.models import Work_Task
+
+    if not Work_Task.objects.filter(task_name__iexact='Lead Collection', company__isnull=True).exists():
+        Work_Task.objects.create(
+            task_name='Lead Collection',
+            task_description='Efficient lead collection is the cornerstone of successful business growth',
+        )
 
     context = {
         'logged_in_user': logged_in_user,
@@ -32,13 +39,27 @@ def dm_home(request):
 
     return render(request, 'dm_head/dm_home.html', context)
 
+
 def dm_work(request):
-    return render(request, 'dm_head/dm_work.html')
+    user_id = request.session.get('hid')
+    logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
+    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+
+
+    return render(request, 'dm_head/dm_work.html',{
+        'logged_in_user': logged_in_user,
+        'user_company': user_company,
+        'employee_profile': employee_profile,
+    })
 
 def task_list(request):
     logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
     company = BusinessRegister_Details.objects.get(id=dm_head_profile.company_id)
+    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+
 
     if request.method == 'POST':
         task_id = request.POST.get('task_id')
@@ -61,7 +82,12 @@ def task_list(request):
         return redirect('task_list')
 
     tasks = Work_Task.objects.all()
-    context = {'tasks': tasks}
+    context = {
+        'tasks': tasks,
+        'logged_in_user': logged_in_user,
+        'user_company': user_company,
+        'employee_profile': employee_profile,
+    }
     return render(request, 'dm_head/task_list.html', context)
 
 
@@ -79,6 +105,9 @@ def register_client(request):
     logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
     company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+
 
     if request.method == 'POST':
         client_id = request.POST.get('client_id')  # For edit
@@ -188,7 +217,12 @@ def register_client(request):
         return redirect('register_client')
 
     clients = ClientRegister.objects.all()
-    return render(request, 'dm_head/register_client.html', {'clients': clients})
+    return render(request, 'dm_head/register_client.html', {
+        'clients': clients,
+        'logged_in_user': logged_in_user,
+        'user_company': user_company,
+        'employee_profile': employee_profile,
+    })
 
 
 def delete_client(request, client_id):
@@ -200,6 +234,11 @@ def delete_client(request, client_id):
 
 def register_work(request):
     works = WorkRegister.objects.all()
+    user_id = request.session.get('hid')
+    logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
+    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+
 
     work_data = []
     for work in works:
@@ -209,12 +248,13 @@ def register_work(request):
             'has_lead_collection': has_lead_collection,
         })
 
-    context = {'work_data': work_data}
+    context = {
+        'work_data': work_data,
+        'logged_in_user': logged_in_user,
+        'user_company': user_company,
+        'employee_profile': employee_profile,
+    }
     return render(request, 'dm_head/register_work.html', context)
-
-
-
-
 
 
 from django.http import JsonResponse
@@ -519,6 +559,11 @@ def delete_category(request, category_id):
 
 # edit fields
 def field_page(request, work_id):
+    user_id = request.session.get('hid')
+    logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
+    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+
     try:
         work = WorkRegister.objects.get(id=work_id)
         client = work.client
@@ -537,6 +582,9 @@ def field_page(request, work_id):
             'client': client,
             'lead_task': lead_task,
             'categories': categories,
+            'logged_in_user': logged_in_user,
+            'user_company': user_company,
+            'employee_profile': employee_profile,
         }
         return render(request, 'dm_head/field_page.html', context)
     except WorkRegister.DoesNotExist:

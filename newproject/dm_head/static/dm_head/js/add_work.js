@@ -50,13 +50,25 @@ document.getElementById('addTaskToggleBtn').addEventListener('click', () => {
 // Clear form
 document.getElementById('clearWorkFormBtn').addEventListener('click', () => {
     const form = document.getElementById('createWorkForm');
-    form.reset();
-    document.getElementById('taskCheckboxes').innerHTML = '';
+
+    Array.from(form.elements).forEach(el => {
+        if (!el.readOnly && el.type !== 'hidden' && el.type !== 'button' && el.type !== 'submit') {
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                el.checked = false;
+            } else {
+                el.value = '';
+            }
+        }
+    });
+
+    document.querySelectorAll('#taskCheckboxes input[type="checkbox"]').forEach(cb => cb.checked = false);
     document.getElementById('additionalTaskContainer').style.display = 'none';
     document.getElementById('addTaskToggleBtn').classList.add('btn-outline-success');
     document.getElementById('addTaskToggleBtn').classList.remove('btn-outline-danger');
     document.getElementById('addTaskToggleBtn').textContent = '+';
 });
+
+
 
 // Submit form
 document.getElementById('createWorkBtn').addEventListener('click', () => {
