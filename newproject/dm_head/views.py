@@ -3,11 +3,11 @@ from django.shortcuts import redirect, render
 from django.contrib import messages
 
 from myapp.models import LogRegister_Details, BusinessRegister_Details, EmployeeRegister_Details
-from .models import Work_Task, ClientRegister, WorkRegister
+from .models import Work_Task, ClientRegister, WorkRegister, ClientTask_Register, LeadCategory_Register
 
+from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-
 
 # Create your views here.
 
@@ -16,16 +16,10 @@ def dm_home(request):
     user_id = request.session.get('hid')
     if not user_id:
         return redirect('login')
-
-    logged_in_user = None
-    user_company = None
-    employee_profile = None
-    try:
-        logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
-        user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
-        employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
-    except LogRegister_Details.DoesNotExist:
-        pass
+    
+    logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
+    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
 
     context = {
         'logged_in_user': logged_in_user,
@@ -39,6 +33,10 @@ def dm_work(request):
     return render(request, 'dm_head/dm_work.html')
 
 def task_list(request):
+    logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+    company = BusinessRegister_Details.objects.get(id=dm_head_profile.company_id)
+
     if request.method == 'POST':
         task_id = request.POST.get('task_id')
         task_name = request.POST.get('task_name')
@@ -51,7 +49,11 @@ def task_list(request):
             task.save()
         else:
             if task_name and task_name.strip().lower() != 'lead collection':
-                Work_Task.objects.create(task_name=task_name, task_description=task_description)
+                Work_Task.objects.create(
+                    task_name=task_name,
+                    task_description=task_description,
+                    company=company
+                )
 
         return redirect('task_list')
 
@@ -71,6 +73,10 @@ phone_regex = re.compile(r'^\d{10}$')
 website_regex = re.compile(r'^https?:\/\/.+\..+')
 
 def register_client(request):
+    logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+    company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+
     if request.method == 'POST':
         client_id = request.POST.get('client_id')  # For edit
         data = request.POST
@@ -134,7 +140,9 @@ def register_client(request):
             client = ClientRegister.objects.get(id=client_id)
         else:
             client = ClientRegister()
-
+        
+        client.company = company
+        client.company_id = dm_head_profile.company.id
         client.client_name = client_name
         client.client_email_primary = client_email_primary
         client.client_email_alter = client_email_alter
@@ -181,14 +189,26 @@ def register_client(request):
 
 
 def delete_client(request, client_id):
-    client = ClientRegister.objects.objects(id=client_id)
+    client = ClientRegister.objects.get(id=client_id)
     client.delete()
     messages.success(request, 'Client deleted successfully.')
     return redirect('register_client')
 
 
 def register_work(request):
-    return render(request, 'dm_head/register_work.html')
+    works = WorkRegister.objects.all()
+
+    work_data = []
+    for work in works:
+        has_lead_collection = work.clienttask_register_set.filter(task_name__icontains='Lead Collection').exists()
+        work_data.append({
+            'work': work,
+            'has_lead_collection': has_lead_collection,
+        })
+
+    context = {'work_data': work_data}
+    return render(request, 'dm_head/register_work.html', context)
+
 
 
 
@@ -260,7 +280,89 @@ def get_client(request, client_id):
             'i_client_business_district': client.client_business_district,
             'i_client_business_state': client.client_business_state,
             'more_description': client.more_description,
+            'company_id': client.company.id if client.company else '9',
         }
         return JsonResponse(data)
     except ClientRegister.DoesNotExist:
         raise Http404("Client not found")
+
+
+
+@csrf_exempt
+def create_work(request):
+    if request.method == 'POST':
+        client_id = request.POST.get('client_id')
+        company_id = request.POST.get('company_id')
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        description = request.POST.get('work_description')
+        task_ids = request.POST.getlist('task_ids[]')
+        new_task_name = request.POST.get('new_task')
+        work_file = request.FILES.get('work_file')
+
+        if not client_id or not company_id:
+            return JsonResponse({'success': False, 'message': 'Client or company ID missing'})
+
+        client = ClientRegister.objects.get(id=client_id)
+        company = BusinessRegister_Details.objects.get(id=company_id)
+
+        if new_task_name:
+            ClientTask_Register.objects.create(
+                company=company,
+                client=client,
+                work=None,
+                task_name=new_task_name,
+                task_description='(Custom Task)'
+            )
+
+        work = WorkRegister.objects.create(
+            client=client,
+            company=company,
+            work_description=description,
+            work_create_date=start_date,
+            work_end_date=end_date
+        )
+
+        if work_file:
+            work.work_file = work_file
+            work.save()
+
+        for task_id in task_ids:
+            try:
+                task = Work_Task.objects.get(id=task_id)
+                ClientTask_Register.objects.create(
+                    company=company,
+                    client=client,
+                    work=work,
+                    task_name=task.task_name,
+                    task_description=task.task_description
+                )
+            except Work_Task.DoesNotExist:
+                continue
+
+        ClientTask_Register.objects.filter(client=client, work__isnull=True).update(work=work)
+
+        client.work_reg_status = 1
+        client.save()
+
+        return JsonResponse({'success': True, 'message': 'Work created successfully'})
+
+    return JsonResponse({'success': False, 'message': 'Invalid request'})
+
+
+
+from itertools import chain
+
+def get_available_tasks(request):
+    logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
+    company = dm_head_profile.company
+
+    lead_tasks = Work_Task.objects.filter(company__isnull=True)
+    company_tasks = Work_Task.objects.filter(company=company)
+
+    combined_tasks = chain(lead_tasks, company_tasks)
+    task_list = [{'id': t.id, 'name': t.task_name, 'description': t.task_description} for t in combined_tasks]
+
+    return JsonResponse({'tasks': task_list})
+

@@ -18,6 +18,15 @@
 
     <div class="table-responsive">
         <table class="table table-dark table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Action</th>
+                    <th>Client</th>
+                    <th>Business</th>
+                    <th>Registered Date / Website</th><th>Work Status</th>
+                </tr>
+            </thead>
+
             <tbody>
                 {% for client in clients %}
                 <tr>
@@ -69,17 +78,16 @@
             
                     <td>
                         {% if client.work_reg_status %}
-                            <a href="{% url 'register_work' %}?client_id={{ client.id }}" class="btn btn-outline-dark btn-sm">Work Registered</a>
+                            <a href="{% url 'register_work' %}?client_id={{ client.id }}" class="btn btn-outline-success btn-sm">Work Registered</a>
                         {% else %}
-                            <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#createWorkModal" onclick="populateWorkForm({{ client.id }})">
-                                Create Work
-                            </button>
+                        <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#createWorkModal" onclick="openWorkModal({{ client.id }})">
+                            Create Work
+                        </button>
                         {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
-            
         </table>
     </div>
     
@@ -235,64 +243,71 @@
 <div class="modal fade" id="createWorkModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg" style="max-width: 80%;">
         <div class="modal-content bg-dark text-white">
-            <form method="post" enctype="multipart/form-data" id="createWorkForm">
-                {% csrf_token %}
-                <input type="hidden" name="client_id">
+            <form id="createWorkForm" enctype="multipart/form-data">
+                <input type="hidden" name="client_id" id="workClientId">
+                <input type="hidden" name="company_id" id="workCompanyId">
+
                 <div class="modal-header border-0">
                     <h5 class="modal-title">Create Work</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
+
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label>Client Name *</label>
-                            <input type="text" name="client_name" class="form-control" readonly>
+                            <input type="text" name="client_name" id="client_name" class="form-control" readonly>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label>Business Name *</label>
-                            <input type="text" name="client_business_name" class="form-control" readonly>
+                            <input type="text" name="business_name" id="business_name" class="form-control" readonly>
                         </div>
                     </div>
+
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 col-sm-12 mb-3">
                             <label>Start Date *</label>
                             <input type="date" name="start_date" class="form-control" required>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 col-sm-12 mb-3">
                             <label>End Date *</label>
                             <input type="date" name="end_date" class="form-control" required>
                         </div>
                     </div>
+
                     <h6>Check Client Requirements</h6>
-                    <div class="row mb-3" id="taskCheckboxes">
+                    <div id="taskCheckboxes" class="row mb-3">
                         <!-- checkboxes will be injected here -->
                     </div>
-                    <div class="mb-3">
-                        <button type="button" class="btn btn-sm btn-outline-success" id="addTaskBtn">+</button>
-                        <div id="additionalTaskContainer" class="mt-2" style="display: none;">
-                            <input type="text" id="newTaskName" class="form-control mb-2" placeholder="New task name">
-                            <input type="text" id="newTaskDesc" class="form-control mb-2" placeholder="New task description">
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="saveNewTaskBtn">Save Task</button>
-                        </div>
-                    </div>                    
+
+                    <p>Note: if you want to add any additional task click on 
+                        <button type="button" class="btn btn-sm btn-outline-success" id="addTaskToggleBtn">+</button>
+                    </p>
+                    <div id="additionalTaskContainer" class="mt-2" style="display: none;">
+                        <input type="text" id="newTaskInput" class="form-control mb-2" placeholder="Enter new task...">
+                    </div>
+
                     <div class="mb-3">
                         <label>File</label>
                         <input type="file" name="work_file" class="form-control">
                     </div>
+
                     <div class="mb-3">
-                        <label>More About Work</label>
+                        <label>More about Work</label>
                         <textarea name="work_description" class="form-control"></textarea>
                     </div>
                 </div>
+
                 <div class="modal-footer d-flex justify-content-center">
-                    <button type="button" class="btn btn-outline-light" type="reset">Clear Form</button>
-                    <button type="submit" class="btn btn-outline-success">Create</button>
+                    <button type="button" class="btn btn-outline-light" id="clearWorkFormBtn">Clear Form</button>
+                    <button type="button" class="btn btn-outline-success" id="createWorkBtn">Create</button>
                     <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Close</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
 
 
 <script src="{% static 'dm_head/js/register_client.js' %}"></script>

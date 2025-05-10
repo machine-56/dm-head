@@ -1,0 +1,25 @@
+
+
+.edit-task-icon,
+.delete-task-icon {
+    cursor: pointer;
+    margin-left: 10px;
+    font-size: 1.1rem;
+    transition: color 0.2s;
+}
+
+.edit-task-icon {
+    color: #6c757d;
+}
+
+.edit-task-icon:hover {
+    color: #0d6efd;
+}
+
+.delete-task-icon {
+    color: #dc3545;
+}
+
+.delete-task-icon:hover {
+    color: #a71d2a;
+}

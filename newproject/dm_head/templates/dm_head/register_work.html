@@ -4,23 +4,76 @@
 {% block title %}Registered Work{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'dm_head/css/register_work.css' %}">
+<script src="{% static 'dm_head/js/register_work.js' %}"></script>
+
 <div class="container mt-4">
-    <h4>Registered Works</h4>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Edit/Remove</th>
-                <th>Client Name</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Progress</th>
-                <th>Client Required Task List</th>
-                <th>Work Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Loop works here -->
-        </tbody>
-    </table>
+    <h5>Registered Work</h5>
+    <div class="table-responsive">
+        <table class="table table-dark table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Edit/Remove</th>
+                    <th>Client Name</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Progress</th>
+                    <th>Client Required Task List</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in work_data %}
+                <tr>
+                    <td>
+                        <button class="btn btn-sm btn-primary edit-btn" data-id="{{ item.work.id }}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-btn" data-id="{{ item.work.id }}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+
+                    <td>{{ item.work.client.client_name }}</td>
+                    <td>{{ item.work.work_create_date }}</td>
+                    <td>{{ item.work.work_end_date }}</td>
+                    <td>
+                        <div class="progress">
+                            <div class="progress-bar"
+                                 role="progressbar"
+                                 data-progress="{{ item.work.work_progress }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100"
+                                 aria-valuenow="{{ item.work.work_progress }}">
+                                {{ item.work.work_progress }}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <ul>
+                            {% for task in item.work.clienttask_register_set.all %}
+                            <li>
+                                {{ task.task_name }}
+                                <i class="fas fa-edit edit-task-icon text-primary" data-id="{{ task.id }}" title="Edit"></i>
+                                <i class="fas fa-trash-alt delete-task-icon text-danger" data-id="{{ task.id }}" title="Delete"></i>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        <button class="btn btn-success add-task-btn" data-id="{{ item.work.id }}">Add More Task</button>
+                        {% if item.has_lead_collection %}
+                        <button class="btn btn-info add-lead-category-btn" data-id="{{ item.work.id }}">Add Lead Category</button>
+                        <button class="btn btn-warning add-fields-btn" data-id="{{ item.work.id }}">Add Fields</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<!-- Example: Modals (you can expand these) -->
+<div class="modal fade" id="addTaskModal" tabindex="-1" aria-hidden="true">
+  <!-- Modal content here -->
+</div>
+
 {% endblock %}

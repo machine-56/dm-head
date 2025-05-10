@@ -1,115 +1,69 @@
-function populateWorkForm(clientId) {
+// When opening the modal, fetch client data and load tasks
+function openWorkModal(clientId) {
     fetch(`/dm_head/get-client/${clientId}/`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
-            document.querySelector('#createWorkForm [name="client_id"]').value = clientId;
-            document.querySelector('#createWorkForm [name="client_name"]').value = data.client_name;
-            document.querySelector('#createWorkForm [name="client_business_name"]').value = data.client_business_name;
+            document.getElementById('workClientId').value = clientId;
+            document.getElementById('workCompanyId').value = data.company_id || '';
+            document.getElementById('client_name').value = data.client_name;
+            document.getElementById('business_name').value = data.client_business_name;
 
-            // Inject task checkboxes (2 per row)
-            const taskContainer = document.getElementById('taskCheckboxes');
-            taskContainer.innerHTML = '';
-            const tasks = data.tasks || ['Lead Collection', 'Other Task']; // fallback if needed
-            tasks.forEach((task, index) => {
-                if (index % 2 === 0) {
-                    taskContainer.innerHTML += `<div class="w-100"></div>`;
-                }
-                taskContainer.innerHTML += `
-                    <div class="col-md-6 mb-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="task_choices" value="${task}">
-                            <label class="form-check-label">${task}</label>
-                        </div>
-                    </div>
-                `;
-            });
-
-            const modal = new bootstrap.Modal(document.getElementById('createWorkModal'));
-            modal.show();
-        })
-        .catch(error => {
-            console.error('Error loading client or tasks:', error);
-            alert('Failed to load client info.');
+            loadTasks();
         });
 }
 
-// Add/remove additional task input
-document.getElementById('addTaskBtn').addEventListener('click', function () {
-    const container = document.getElementById('additionalTaskContainer');
-    if (container.style.display === 'none') {
-        container.style.display = 'block';
-        addTaskBtn.classList.remove('btn-outline-success');
-        addTaskBtn.classList.add('btn-outline-danger');
-        addTaskBtn.innerHTML = '-';
-    } else {
-        container.style.display = 'none';
-        addTaskBtn.classList.remove('btn-outline-danger');
-        addTaskBtn.classList.add('btn-outline-success');
-        addTaskBtn.innerHTML = '+';
-        container.querySelector('input').value = '';
-    }
-});
-// Load available tasks from DB (excluding company tasks)
-function loadTasks(companyId) {
+// Load common tasks (without company)
+function loadTasks() {
     fetch('/dm_head/get-tasks/')
         .then(res => res.json())
         .then(data => {
-            const taskContainer = document.getElementById('taskList');
-            taskContainer.innerHTML = '';
+            const container = document.getElementById('taskCheckboxes');
+            container.innerHTML = '';
             data.tasks.forEach(task => {
+                const div = document.createElement('div');
+                div.className = 'col-md-4 mb-2';
+
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
-                checkbox.value = task.id;
                 checkbox.name = 'task_ids[]';
-                checkbox.classList.add('form-check-input');
-                const label = document.createElement('label');
-                label.classList.add('form-check-label', 'ms-2');
-                label.textContent = `${task.name} (${task.description || 'No description'})`;
-                const wrapper = document.createElement('div');
-                wrapper.classList.add('form-check', 'mb-1');
-                wrapper.appendChild(checkbox);
-                wrapper.appendChild(label);
-                taskContainer.appendChild(wrapper);
+                checkbox.value = task.id;
+                checkbox.className = 'form-check-input me-2 task-checkbox';
+
+                div.appendChild(checkbox);
+                div.append(` ${task.name}`);
+                container.appendChild(div);
             });
         });
 }
 
-// Add a new company-specific task
-function addCompanyTask(companyId) {
-    const taskName = document.getElementById('newTaskName').value.trim();
-    const taskDescription = document.getElementById('newTaskDesc').value.trim();
+// Toggle + / - button for additional task
+document.getElementById('addTaskToggleBtn').addEventListener('click', () => {
+    const section = document.getElementById('additionalTaskContainer');
+    const btn = document.getElementById('addTaskToggleBtn');
+    const isVisible = section.style.display === 'block';
+    section.style.display = isVisible ? 'none' : 'block';
+    btn.classList.toggle('btn-outline-success', isVisible);
+    btn.classList.toggle('btn-outline-danger', !isVisible);
+    btn.textContent = isVisible ? '+' : '-';
+});
 
-    if (!taskName) {
-        alert('Task name is required.');
-        return;
-    }
+// Clear form
+document.getElementById('clearWorkFormBtn').addEventListener('click', () => {
+    const form = document.getElementById('createWorkForm');
+    form.reset();
+    document.getElementById('taskCheckboxes').innerHTML = '';
+    document.getElementById('additionalTaskContainer').style.display = 'none';
+    document.getElementById('addTaskToggleBtn').classList.add('btn-outline-success');
+    document.getElementById('addTaskToggleBtn').classList.remove('btn-outline-danger');
+    document.getElementById('addTaskToggleBtn').textContent = '+';
+});
 
-    const formData = new FormData();
-    formData.append('task_name', taskName);
-    formData.append('task_description', taskDescription);
-    formData.append('company_id', companyId);
-
-    fetch('/dm_head/add-company-task/', {
-        method: 'POST',
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        alert(data.message);
-        if (data.success) {
-            document.getElementById('newTaskName').value = '';
-            document.getElementById('newTaskDesc').value = '';
-            loadTasks(companyId);
-        }
-    })
-    .catch(() => alert('Error adding new task.'));
-}
-
-// Submit the work creation form
-function submitWork(companyId) {
+// Submit form
+document.getElementById('createWorkBtn').addEventListener('click', () => {
     const form = document.getElementById('createWorkForm');
     const formData = new FormData(form);
-    formData.append('company_id', companyId);
+    const newTask = document.getElementById('newTaskInput').value.trim();
+    if (newTask) formData.append('new_task', newTask);
 
     fetch('/dm_head/create-work/', {
         method: 'POST',
@@ -118,40 +72,6 @@ function submitWork(companyId) {
     .then(res => res.json())
     .then(data => {
         alert(data.message);
-        if (data.success) {
-            window.location.reload();
-        }
-    })
-    .catch(() => alert('Error submitting work.'));
-}
-
-// Initialize modal when opened
-function setupWorkModal(companyId) {
-    loadTasks(companyId);
-
-    document.getElementById('addTaskButton').addEventListener('click', () => {
-        addCompanyTask(companyId);
+        if (data.success) window.location.reload();
     });
-
-    document.getElementById('createWorkButton').addEventListener('click', () => {
-        submitWork(companyId);
-    });
-}
-
-// OPTIONAL: Reset form and listeners when modal closes
-document.getElementById('registerWorkModal').addEventListener('hidden.bs.modal', () => {
-    document.getElementById('createWorkForm').reset();
-    document.getElementById('taskList').innerHTML = '';
-});
-const addTaskBtn = document.getElementById('addTaskBtn');
-const additionalTaskContainer = document.getElementById('additionalTaskContainer');
-
-addTaskBtn.addEventListener('click', () => {
-    if (additionalTaskContainer.style.display === 'none') {
-        additionalTaskContainer.style.display = 'block';
-        
-    } else {
-        additionalTaskContainer.style.display = 'none';
-        
-    }
 });

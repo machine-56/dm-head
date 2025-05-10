@@ -15,4 +15,6 @@ urlpatterns = [
 
     path('check-unique/', views.check_unique_field, name='check_unique_field'),
     path('get-client/<int:client_id>/', views.get_client, name='get_client'),
+    path('create-work/', views.create_work, name='create_work'),
+    path('get-tasks/', views.get_available_tasks, name='get_available_tasks'),
 ]
