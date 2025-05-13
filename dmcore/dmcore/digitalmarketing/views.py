@@ -493,9 +493,6 @@ def decline_user(request, login_id):
 
 # ======================================================== DM head ================================================================
 
-
-
-
 def dm_work(request):
     user_id = request.session.get('hid')
     logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
