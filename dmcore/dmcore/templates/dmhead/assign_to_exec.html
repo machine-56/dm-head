@@ -1,13 +1,19 @@
 {% extends 'dmhead/dmheadsidebar.html' %}
 {% load static %}
+
 {% block title %}Assign to Executive{% endblock %}
+
 {% block content %}
 <link rel="stylesheet" href="{% static 'dm_head/css/allocate_work.css' %}">
 <div class="container mt-4 comn_table_bg">
   <h5 class="text-white mb-3">Assign to Executives</h5>
+  <div class="input-group w-auto mb-3">
+    <input type="text" class="form-control" placeholder="Search..." id="searchInput">
+    <button class="btn btn-light" id="clearSearch">Clear</button>
+  </div>
 
   <div class="table-responsive">
-    <table class="table table-dark table-striped align-middle">
+    <table class="table table-dark table-striped align-middle" id="targetTable">
       <thead class="text-center">
         <tr>
           <th>No</th>
@@ -21,59 +27,60 @@
         </tr>
       </thead>
       <tbody>
-        {% for item in assignments %}
+        {% for row in structured_assignments %}
         <tr class="text-center">
           <td>{{ forloop.counter }}</td>
           <td class="text-start table_en_md">
             <div class="d-flex align-items-center">
-              <img src="{% if work.client.client_profile %}{{ work.client.client_profile.url }}{% else %}{% static 'img/default-profile.png' %}{% endif %}"
-                   class="rounded-circle me-2" width="40" height="40">
-              <span>{{ item.client_name }}</span>
+              <img src="{% if row.client_profile %}{{ row.client_profile }}{% else %}{% static 'img/default-profile.png' %}{% endif %}" class="rounded-circle me-2" width="40" height="40">
+              <span>{{ row.client_name }}</span>
             </div>
           </td>
-          <td class="table_en_sm">{{ item.start_date }}</td>
-          <td class="table_en_sm">{{ item.due_date }}</td>
-          <td class="table_en_sm">{{ item.team_lead }}</td>
+          <td class="table_en_sm">{{ row.start_date }}</td>
+          <td class="table_en_sm">{{ row.due_date }}</td>
+          <td class="table_en_sm">{{ row.team_lead }}</td>
           <td class="table_en_sm">
             <button class="btn btn-sm btn-outline-info view-task-btn"
-              data-clientname="{{ item.client_name }}"
-              data-description="{{ item.task_description }}"
-              data-date="{{ item.start_date|date:'Y-m-d' }}"
-              data-tasks='[{"name": "{{ item.task_name }}", "categories": [{% for cat in item.categories %}"{{ cat }}"{% if not forloop.last %}, {% endif %}{% endfor %}]}]'>
+              data-clientname="{{ row.client_name }}"
+              data-taskname="{{ row.task_name }}"
+              data-date="{{ row.start_date|date:'Y-m-d' }}"
+              data-assignid="{{ row.assign_id }}"
+              data-is-category="{{ row.is_category|yesno:'1,0' }}"
+              {% if row.is_category %}
+                data-categoryid="{{ row.category_id }}"
+                data-categoryname="{{ row.category_name }}"
+              {% else %}
+                data-taskid="{{ row.task_id }}"
+              {% endif %}>
               View
             </button>
           </td>
-          <td class="text-start table_en_md">
-            {{ item.task_name }}
-            {% if item.is_lead_collection %}
-            <ul class="mb-0 small">
-              {% for cat in item.categories %}
-              <li>{{ cat }}</li>
-              {% endfor %}
-            </ul>
-            {% endif %}
+          <td class="table_en_md">
+            {{ row.task_name }}
+            {% if row.is_category %}<br><small>{{ row.category_name }}</small>{% endif %}
           </td>
           <td class="table_en_sm">
             <button class="btn btn-sm btn-outline-success assign-btn"
-              data-taskid="{{ item.task_id }}"
-              data-taskname="{{ item.task_name }}"
-              data-teamleadid="{{ item.team_lead_id }}"
-              data-teamallocid="{{ item.assign_id }}">
+              data-taskid="{{ row.task_id|default:'' }}"
+              data-categoryid="{{ row.category_id|default:'' }}"
+              data-is-category="{{ row.is_category|yesno:'1,0' }}"
+              data-taskname="{{ row.task_name }}"
+              data-teamleadid="{{ row.team_lead_id }}"
+              data-teamallocid="{{ row.assign_id }}">
               Assign
             </button>
           </td>
         </tr>
         {% empty %}
-        <tr>
-          <td colspan="8" class="text-center text-muted">No group tasks found.</td>
-        </tr>
+        <tr><td colspan="8" class="text-center text-muted">No tasks found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
 <!-- modals -->
- <!-- view task details -->
+<!-- view task details -->
 <div class="modal fade" id="viewTaskDetailsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content bg-dark text-white">
@@ -102,6 +109,7 @@
     </div>
   </div>
 </div>
+
 <!-- assign tasks -->
 <div class="modal fade" id="assignExecModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -129,9 +137,12 @@
             </select>
           </div>
 
-          <div class="mb-2" id="employee_checkboxes">
-            <label>Select Employees</label>
-            <div id="exec_checklist" class="form-check-group"></div>
+          <div class="mb-2">
+            <label>Select Employee</label>
+            <select name="executive" id="exec_dropdown" class="form-select" required>
+              <option selected disabled>Select Employee</option>
+              <!-- Options will be loaded via JS -->
+            </select>
           </div>
 
           <div class="mb-2">
@@ -153,6 +164,14 @@
             <label>More About Work</label>
             <textarea name="description" class="form-control" rows="3"></textarea>
           </div>
+          <!-- File Upload + Download -->
+          <div class="mb-2">
+            <label>File</label>
+            <input type="file" name="file" class="form-control">
+            <div class="mt-2" id="work_file_download_link" style="display: none;">
+              <a href="#" class="btn btn-outline-light btn-sm" target="_blank" id="download_file_btn">Download Existing File</a>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -167,4 +186,25 @@
 
 
 <script src="{% static 'dm_head/js/assign_exec.js' %}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("searchInput");
+    const clearBtn = document.getElementById("clearSearch");
+    const rows = document.querySelectorAll("#targetTable tbody tr");
+
+    function filterRows() {
+      const searchTerm = searchInput.value.toLowerCase();
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? "" : "none";
+      });
+    }
+
+    searchInput.addEventListener("keyup", filterRows);
+    clearBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      filterRows();
+    });
+  });
+</script>
 {% endblock %}

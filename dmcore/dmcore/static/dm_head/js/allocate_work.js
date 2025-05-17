@@ -79,7 +79,6 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     
       document.getElementById('criteria_section').classList.remove('d-none');
-      document.getElementById('platform_section').classList.remove('d-none');
     
     } else {
       categorySection.classList.add('d-none');
@@ -87,7 +86,6 @@ document.addEventListener('DOMContentLoaded', function () {
       categoryDropdown.removeAttribute('required');
     
       document.getElementById('criteria_section').classList.add('d-none');
-      document.getElementById('platform_section').classList.add('d-none');
     }
 
   });

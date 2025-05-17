@@ -23,3 +23,13 @@ table td{
 .table_en_lg{
   min-width: 500px;
 }
+
+#clearSearch {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+#searchInput {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}

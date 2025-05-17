@@ -686,7 +686,7 @@ def register_client(request):
         messages.success(request, 'Client saved successfully.')
         return redirect('register_client')
 
-    clients = ClientRegister.objects.all()
+    clients = ClientRegister.objects.filter(company=company)
     return render(request, 'dmhead/register_client.html', {
         'clients': clients,
         'logged_in_user': logged_in_user,
@@ -712,7 +712,7 @@ def register_work(request):
     user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     company = BusinessRegister_Details.objects.filter(login=user).first()
     name=EmployeeRegister_Details.objects.filter(login=user).first()
-    works = WorkRegister.objects.all()
+    works = WorkRegister.objects.filter(company=company)
     user_id = request.session.get('hid')
     logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
     user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
@@ -789,49 +789,60 @@ def teamlead_tasks(request, tl_id):
 # add task to executive
 def assign_to_exec_page(request):
     user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
-    company = BusinessRegister_Details.objects.filter(login=user).first()
-    name=EmployeeRegister_Details.objects.filter(login=user).first()
-
-    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     employee = EmployeeRegister_Details.objects.filter(login=user).first()
     company = employee.company if employee else None
-    assignments = []
+
+    structured_assignments = []
 
     work_assigns = WorkAssign.objects.filter(
-        company=company, assign_type=1
+        company=company,
+        assign_type=1
     ).select_related('client', 'team_lead').prefetch_related('client_task')
 
     for assign in work_assigns:
         for task in assign.client_task.all():
-            categories = []
             if task.task_name.strip().lower() == "lead collection":
-                cats = LeadCateogry_TeamAllocate.objects.filter(
+                # Split each category into its own row
+                categories = LeadCateogry_TeamAllocate.objects.filter(
                     work_assign=assign,
                     lead_category__client_task=task
-                ).values_list('lead_category__collection_for', flat=True)
-                categories = list(cats)
+                ).select_related('lead_category')
 
-            assignments.append({
-                'assign_id': assign.id,
-                'client_name': assign.client.client_name,
-                'client_profile': assign.client.client_profile.url if assign.client.client_profile else '',
-                'start_date': assign.from_date,
-                'due_date': assign.due_date,
-                'team_lead': assign.team_lead.name,
-                'team_lead_id': assign.team_lead.id,
-                'task_name': task.task_name,
-                'task_id': task.id,
-                'task_description': task.task_description,
-                'is_lead_collection': task.task_name.lower() == 'lead collection',
-                'categories': categories,
-            })
+                for cat in categories:
+                    structured_assignments.append({
+                        "client_name": assign.client.client_name,
+                        "client_profile": assign.client.client_profile.url if assign.client.client_profile else '',
+                        "start_date": assign.from_date,
+                        "due_date": assign.due_date,
+                        "team_lead": assign.team_lead.name,
+                        "team_lead_id": assign.team_lead.id,
+                        "assign_id": assign.id,
+                        "task_name": task.task_name,
+                        "is_category": True,
+                        "category_id": cat.lead_category.id,
+                        "category_name": cat.lead_category.collection_for,
+                    })
+            else:
+                structured_assignments.append({
+                    "client_name": assign.client.client_name,
+                    "client_profile": assign.client.client_profile.url if assign.client.client_profile else '',
+                    "start_date": assign.from_date,
+                    "due_date": assign.due_date,
+                    "team_lead": assign.team_lead.name,
+                    "team_lead_id": assign.team_lead.id,
+                    "assign_id": assign.id,
+                    "task_name": task.task_name,
+                    "task_id": task.id,
+                    "is_category": False,
+                })
 
     return render(request, 'dmhead/assign_to_exec.html', {
-        'assignments': assignments,
+        'structured_assignments': structured_assignments,
         'user': user,
         'company': company,
-        'name':name
+        'name': employee
     })
+
 
 
 from django.http import JsonResponse
@@ -1288,6 +1299,13 @@ def add_lead_category_to_existing_assignment(request):
             target = request.POST.get('target')
             description = request.POST.get('description', '')
             file = request.FILES.get('file')
+            criteria = request.POST.get('criteria', '')
+            is_instagram = bool(request.POST.get('is_instagram'))
+            is_facebook = bool(request.POST.get('is_facebook'))
+            is_x = bool(request.POST.get('is_x'))
+            instagram_target = request.POST.get('instagram_target') or 0
+            facebook_target = request.POST.get('facebook_target') or 0
+            x_target = request.POST.get('x_target') or 0
             category_ids = request.POST.getlist('category')
 
             work_assign = WorkAssign.objects.get(id=assign_id)
@@ -1307,10 +1325,27 @@ def add_lead_category_to_existing_assignment(request):
                     status=1
                 )
 
+            # Update WorkAssign shared fields
+            work_assign.from_date = from_date
+            work_assign.due_date = due_date
+            work_assign.target = target
+            work_assign.description = description
+            work_assign.criteria = criteria
+            work_assign.is_instagram = is_instagram
+            work_assign.is_facebook = is_facebook
+            work_assign.is_x = is_x
+            work_assign.instagram_target = instagram_target
+            work_assign.facebook_target = facebook_target
+            work_assign.x_target = x_target
+            if file:
+                work_assign.file = file
+            work_assign.save()
+
             return JsonResponse({'success': True, 'message': 'Category(ies) added successfully'})
 
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
+
 
 # delete category from work TL view
 @csrf_exempt
@@ -1350,12 +1385,24 @@ def update_lead_category(request):
         from_date = request.POST.get('start_date')
         due_date = request.POST.get('end_date')
         description = request.POST.get('description')
+        file = request.FILES.get('file')
+
+        criteria = request.POST.get('criteria', '')
+        is_instagram = bool(request.POST.get('is_instagram'))
+        is_facebook = bool(request.POST.get('is_facebook'))
+        is_x = bool(request.POST.get('is_x'))
+
+        instagram_target = request.POST.get('instagram_target') or 0
+        facebook_target = request.POST.get('facebook_target') or 0
+        x_target = request.POST.get('x_target') or 0
 
         # Update LeadCateogry_TeamAllocate
         lead_alloc.target = target
         lead_alloc.from_date = from_date
         lead_alloc.due_date = due_date
         lead_alloc.description = description
+        if file:
+            lead_alloc.file = file
         lead_alloc.save()
 
         # Update WorkAssign
@@ -1363,11 +1410,21 @@ def update_lead_category(request):
         work_assign.from_date = from_date
         work_assign.due_date = due_date
         work_assign.description = description
+        work_assign.criteria = criteria
+        work_assign.is_instagram = is_instagram
+        work_assign.is_facebook = is_facebook
+        work_assign.is_x = is_x
+        work_assign.instagram_target = instagram_target
+        work_assign.facebook_target = facebook_target
+        work_assign.x_target = x_target
+        if file:
+            work_assign.file = file
         work_assign.save()
 
         return JsonResponse({'success': True, 'message': 'Lead category & work updated.'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)})
+
 
 # delete assigned work (team lead view)
 @csrf_exempt
@@ -1405,70 +1462,78 @@ def remove_task_from_assignment(request):
 
 # save the allocations
 @csrf_exempt
-@csrf_exempt
 def assign_to_executives(request):
     if request.method == 'POST':
         try:
             task_id = request.POST.get('task_id')
             team_assign_id = request.POST.get('team_allocation_id')
-            employee_ids = request.POST.getlist('executives')
+            executive_id = request.POST.get('executive')
             from_date = request.POST.get('start_date')
             due_date = request.POST.get('due_date')
             target = request.POST.get('target')
             description = request.POST.get('description', '')
             file = request.FILES.get('file')
-            lead_category_id = request.POST.get('lead_category')  # Only if task is Lead Collection
+            lead_category_id = request.POST.get('lead_category')
 
-            task = ClientTask_Register.objects.get(id=task_id)
+
+            if not executive_id or not team_assign_id:
+                return JsonResponse({'success': False, 'message': 'Missing required fields.'})
+
+            executive = EmployeeRegister_Details.objects.get(id=executive_id)
             team_assign = WorkAssign.objects.get(id=team_assign_id)
-            company = team_assign.company
-            client = team_assign.client
+            task = None
 
-            for eid in employee_ids:
-                executive = EmployeeRegister_Details.objects.get(id=eid)
+            if task_id:
+                task = ClientTask_Register.objects.get(id=task_id)
 
-                # Create TaskAssign
-                task_assign = TaskAssign.objects.create(
+            elif lead_category_id:
+                category = LeadCategory_Register.objects.get(id=lead_category_id)
+                task = category.client_task  # infer from category
+
+            if not task:
+                return JsonResponse({'success': False, 'message': 'Unable to resolve task.'})
+
+            # === Create TaskAssign ===
+            task_assign = TaskAssign.objects.create(
+                work_assign=team_assign,
+                executive=executive,
+                client_task=task,
+                description=description,
+                file=file,
+                allocate_date=from_date,
+                start_date=from_date,
+                due_date=due_date,
+                target=target,
+                status=1
+            )
+
+            # === If Lead Category: Create LeadCategory_Assign too ===
+            if lead_category_id:
+                team_category = LeadCateogry_TeamAllocate.objects.filter(
                     work_assign=team_assign,
+                    lead_category_id=lead_category_id
+                ).first()
+
+                if not team_category:
+                    return JsonResponse({'success': False, 'message': 'Category assignment to TL not found.'})
+
+                LeadCategory_Assign.objects.create(
                     executive=executive,
-                    client_task=task,
+                    team_allocation=team_category,
+                    task_assign=task_assign,
                     description=description,
-                    file=file,
-                    allocate_date=from_date,
-                    start_date=from_date,
+                    from_date=from_date,
                     due_date=due_date,
                     target=target,
+                    file=file,
                     status=1
                 )
 
-                # If task is Lead Collection, also save to LeadCategory_Assign
-                if task.task_name.strip().lower() == "lead collection" and lead_category_id:
-                    # Find the correct TL-category assignment for this category
-                    team_category = LeadCateogry_TeamAllocate.objects.filter(
-                        work_assign=team_assign,
-                        lead_category_id=lead_category_id
-                    ).first()
-
-                    if not team_category:
-                        return JsonResponse({'success': False, 'message': 'Category assignment to TL not found.'})
-
-                    LeadCategory_Assign.objects.create(
-                        executive=executive,
-                        team_allocation=team_category,
-                        task_assign=task_assign,
-                        description=description,
-                        from_date=from_date,
-                        due_date=due_date,
-                        target=target,
-                        file=file,
-                        status=1
-                    )
-
-            messages.success(request, "Task assigned to executive(s) successfully.")
-            return JsonResponse({'success': True, 'message': 'Task assigned to executives successfully.'})
+            return JsonResponse({'success': True, 'message': 'Task assigned to executive successfully.'})
 
         except Exception as e:
             return JsonResponse({'success': False, 'message': str(e)})
+
 
 # Js get calls
 from django.http import JsonResponse, Http404
@@ -1606,7 +1671,6 @@ def get_category(request, category_id):
 # getting task for allocation
 def get_tasks_for_work(request, work_id):
     try:
-        print(f'======================called {work_id}')
         tasks = ClientTask_Register.objects.filter(work_id=work_id)
         task_list = []
         for task in tasks:
@@ -1626,7 +1690,6 @@ def get_tasks_for_work(request, work_id):
 
 # lead categoried in team leader page
 def get_lead_categories_for_task(request, assign_id):
-    print(f'==============================called {assign_id}')
     try:
         # Get the current assignment and work ID
         assign = WorkAssign.objects.get(id=assign_id)
@@ -1686,7 +1749,52 @@ def get_lead_categories_for_tl_task(request, assign_id):
     except:
         return JsonResponse({'success': False, 'categories': []})
 
+# new add 17 may
 
+def get_lead_team_alloc_desc(request, category_id, assign_id):
+    try:
+        record = LeadCateogry_TeamAllocate.objects.get(
+            lead_category_id=category_id,
+            work_assign_id=assign_id
+        )
+        return JsonResponse({
+            'description': record.description or '',
+            'file_url': record.file.url if record.file else ''
+        })
+    except LeadCateogry_TeamAllocate.DoesNotExist:
+        return JsonResponse({'description': '', 'file_url': ''})
+    except Exception as e:
+        return JsonResponse({'description': '', 'file_url': ''})
+
+def get_workassign_desc(request, assign_id):
+    try:
+        assign = WorkAssign.objects.get(id=assign_id)
+        return JsonResponse({
+            'description': assign.description or '',
+            'file_url': assign.file.url if assign.file else ''
+        })
+    except WorkAssign.DoesNotExist:
+        return JsonResponse({'description': '', 'file_url': ''})
+    except Exception as e:
+        return JsonResponse({'description': '', 'file_url': ''})
+
+@csrf_exempt
+def get_full_workassign(request, assign_id):
+    try:
+        assign = WorkAssign.objects.get(id=assign_id)
+        return JsonResponse({
+            'description': assign.description or '',
+            'criteria': assign.criteria or '',
+            'file_url': assign.file.url if assign.file else '',
+            'is_instagram': assign.is_instagram,
+            'instagram_target': assign.instagram_target,
+            'is_facebook': assign.is_facebook,
+            'facebook_target': assign.facebook_target,
+            'is_x': assign.is_x,
+            'x_target': assign.x_target,
+        })
+    except WorkAssign.DoesNotExist:
+        return JsonResponse({'error': 'WorkAssign not found'}, status=404)
 
 
 # ======================================================== DM head ================================================================

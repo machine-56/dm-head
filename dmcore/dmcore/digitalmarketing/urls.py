@@ -78,6 +78,9 @@ urlpatterns = [
     path('get-employees-for-tl/<int:tl_id>/', views.get_employees_for_tl, name='get_employees_for_tl'),
     path('get-lead-categories-for-tl-task/<int:assign_id>/', views.get_lead_categories_for_tl_task, name='get_lead_categories_for_tl_task'),
 
-    # ===================================================== end DM head =====================================================
+    path('get-lead-team-alloc-desc/<int:category_id>/<int:assign_id>/', views.get_lead_team_alloc_desc, name='get_lead_team_alloc_desc'),
+    path('get-workassign-desc/<int:assign_id>/', views.get_workassign_desc, name='get_workassign_desc'),
+    path('get-full-workassign/<int:assign_id>/', views.get_full_workassign, name='get_full_workassign'),
 
+    # ===================================================== end DM head =====================================================
 ]
