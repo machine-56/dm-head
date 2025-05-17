@@ -96,7 +96,7 @@
                         {% if item.work.work_allocate_status == 0 %}
                             <span class="btn btn-outline-warning btn-sm">Waiting for Allocation</span>
                         {% else %}
-                            <span class="btn btn-outline-success btn-sm">Allocation Done</span>
+                            <a href="{% url 'allocate_work_page' %}" class="btn btn-outline-success btn-sm">Allocation Done</a>
                         {% endif %}
                     </td>
                 </tr>

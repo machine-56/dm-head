@@ -1,0 +1,219 @@
+{% extends 'dmhead/dmheadsidebar.html' %}
+{% load static %}
+{% block title %}Team Lead Assignments{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'dm_head/css/allocate_work.css' %}">
+<div class="container mt-4 comn_table_bg">
+  <h5 class="text-white mb-3">Assigned Works for {{ team_lead.name }}</h5>
+  <div class="table-responsive">
+    <table class="table table-dark table-striped align-middle">
+      <thead class="text-center">
+        <tr>
+          <th>No / Delete</th>
+          <th>Assigned Date</th>
+          <th>Start Date</th>
+          <th>Due Date</th>
+          <th>Target</th>
+          <th>Work Type</th>
+          <th>Task List</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for assign in assigned_works %}
+        <tr class="text-center">
+          <td class="table_en_md">
+            <button class="btn btn-outline-danger delete-work-btn"
+                    data-assignid="{{ assign.id }}"
+                    data-taskid="{{ assign.client_task.all.0.id }}"
+                    data-taskname="{{ assign.client_task.all.0.task_name|lower }}">
+              Assigned Work {{ forloop.counter }} <i class="fas fa-trash ms-2"></i>
+            </button>
+          </td>
+          <td class="table_en_sm">{{ assign.assign_date|date:"M d, Y" }}</td>
+          <td class="table_en_sm">{{ assign.from_date }}</td>
+          <td class="table_en_sm">{{ assign.due_date }}</td>
+          <td class="table_en_sm">{{ assign.target }}</td>
+          <td class="table_en_sm">{% if assign.assign_type == 0 %}Single Work{% else %}Group Work{% endif %}</td>
+          <td class="text-start table_en_lmd">
+            {% for task in assign.client_task.all %}
+              <div>
+                {{ task.task_name }}
+                  {% if task.task_name|lower == "lead collection" %}
+                    <i class="fas fa-plus ms-2 text-success add-category-btn"
+                       data-taskid="{{ task.id }}"
+                       data-assignid="{{ assign.id }}"
+                       data-assigntype="{{ assign.assign_type }}"
+                       data-tlid="{{ assign.team_lead.id }}"
+                       title="Add Category"
+                       style="cursor:pointer;">
+                    </i>
+                  {% endif %}
+                  {% if task.task_name|lower == "lead collection" %}
+                  <ul class="mb-0 ms-3 small">
+                    {% for cat in assign.leadcateogry_teamallocate_set.all %}
+                      {% if cat.work_assign.id == assign.id and cat.team_lead.id == assign.team_lead.id and cat.lead_category.client_task.id == task.id %}
+                        <li class="text-white d-flex justify-content-between align-items-center">
+                          <span class="me-2">{{ cat.lead_category.collection_for }}</span>
+                          <span class="d-flex align-items-center">
+                            <i class="fas fa-pen text-warning me-2 edit-category-btn"
+                               style="cursor: pointer;"
+                               title="Edit Category"
+                               data-teamlead="{{ assign.team_lead.name }}"
+                               data-category="{{ cat.lead_category.collection_for }}"
+                               data-target="{{ cat.target }}"
+                               data-start="{{ cat.from_date|date:'Y-m-d' }}"
+                               data-due="{{ cat.due_date|date:'Y-m-d' }}"
+                               data-description="{{ cat.description }}"
+                               data-editid="{{ cat.id }}">
+                            </i>
+                            {% if assign.leadcateogry_teamallocate_set.count > 1 %}
+                            <i class="fas fa-trash text-danger delete-task-btn"
+                               data-taskid="{{ task.id }}"
+                               data-assignid="{{ assign.id }}"
+                               data-categoryid="{{ cat.id }}"
+                               style="cursor:pointer;" title="Delete Task"></i>
+                            {% endif %}
+                          </span>
+                        </li>
+                      {% endif %}
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </span>
+              </div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted">No tasks found for this TL.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modals -->
+
+<!-- Edit Category Modal -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content bg-dark text-white">
+      <form id="editCategoryForm" method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="edit_id" id="edit_category_id">
+
+        <div class="modal-header border-bottom">
+          <h5 class="modal-title">Edit Lead Category Assignment</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Team Leader</label>
+              <input type="text" class="form-control" id="modal_teamlead" readonly>
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Lead Category</label>
+              <input type="text" class="form-control" id="modal_category" readonly>
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Target</label>
+              <input type="number" class="form-control" name="target" id="modal_target" required>
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Start Date</label>
+              <input type="date" class="form-control" name="start_date" id="modal_start" required>
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">End Date</label>
+              <input type="date" class="form-control" name="end_date" id="modal_due" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">More About Work</label>
+              <textarea class="form-control" name="description" id="modal_description" rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer border-top">
+          <button type="button" class="btn btn-outline-light" id="clearEditCategoryFormBtn">Clear</button>
+          <button type="submit" class="btn btn-outline-success">Update</button>
+          <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Close</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Lead Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content bg-dark text-white">
+      <form id="addCategoryForm" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="assign_id" id="add_assign_id">
+        <input type="hidden" name="task_id" id="add_task_id">
+        <input type="hidden" name="assign_type" id="add_assign_type">
+        <input type="hidden" name="teamlead_id" id="add_teamlead_id">
+
+        <div class="modal-header border-bottom">
+          <h5 class="modal-title">Assign New Lead Categories</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Team Leader</label>
+              <input type="text" class="form-control" id="add_teamlead_display" readonly>
+            </div>
+
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Task</label>
+              <input type="text" class="form-control" id="add_task_name_display" value="Lead Collection" readonly>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Select Categories</label>
+              <div id="category_checkbox_group">
+                <!-- Checkboxes will be inserted here -->
+              </div>
+            </div>
+
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Start Date</label>
+              <input type="date" class="form-control" name="start_date" required>
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">End Date</label>
+              <input type="date" class="form-control" name="end_date" required>
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Total Target</label>
+              <input type="number" class="form-control" name="target" required>
+            </div>
+            <div class="col-md-6 col-sm-12">
+              <label class="form-label">Upload File</label>
+              <input type="file" class="form-control" name="file">
+            </div>
+            <div class="col-12">
+              <label class="form-label">More About Work</label>
+              <textarea class="form-control" name="description" rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer border-top">
+          <button type="button" class="btn btn-outline-light" id="clearAddCategoryFormBtn">Clear</button>
+          <button type="submit" class="btn btn-outline-success">Assign</button>
+          <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">Close</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<script src="{% static 'dm_head/js/teamleader_tasks.js' %}"></script>
+{% endblock %}

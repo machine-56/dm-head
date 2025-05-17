@@ -8,12 +8,13 @@ body {
 .card-common {
     background-color: var(--card-bg);
     color: white;
-    height: 150px;
+    min-width: 170px;
+    min-height: 150px;
     padding: 20px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    text-align: center;
+    justify-content: space-between;
+    text-align: left;
     border-radius: 0.5rem;
     transition: transform 0.3s, box-shadow 0.3s;
     cursor: pointer;
@@ -27,18 +28,20 @@ body {
 
 .card-common i {
     font-size: 1.5rem;
-    /* background-color: white; */
-    padding: 0.5rem;
-    border-radius: 8px;
-    /* color: var(--card-bg); */
 }
 
 .card-common h5 {
-    font-size: 1.5rem;
-    margin-bottom: 10px;
+    font-size: 1.3rem;
+    margin-bottom: 0;
 }
 
 .card-common p {
-    font-size: 1rem;
-    margin: 0;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+}
+
+.comn_table_bg {
+    background-color: var(--table-bg);
+    border-radius: 8px;
+    padding: 2rem 1.5rem;
 }

@@ -51,6 +51,19 @@ urlpatterns = [
     path('fields/<int:work_id>/', views.field_page, name='field_page'),
     path('add-field/', views.add_field, name='add_field'),
 
+    path('allocate-work/', views.allocate_work_page, name='allocate_work_page'),
+    path('get-tasks-for-work/<int:work_id>/', views.get_tasks_for_work, name='get_tasks_for_work'),
+    path('submit-work-allocation/', views.submit_work_allocation, name='submit_work_allocation'),
+    path('add-category-to-work/', views.add_lead_category_to_existing_assignment, name='add_lead_category_to_existing_assignment'),
+    path('delete-lead-category/<int:category_id>/', views.delete_lead_category, name='delete_lead_category'),
+    path('delete-all-tasks-for-tl/<int:work_id>/<int:tl_id>/', views.delete_all_tasks_for_tl, name='delete_all_tasks_for_tl'),
+    path('assign-to-exec/', views.assign_to_exec_page, name='assign_to_exec_page'),
+    path('assign-to-executives/', views.assign_to_executives, name='assign_to_executives'),
+
+    path('teamlead-tasks/<int:tl_id>/', views.teamlead_tasks, name='teamlead_tasks'),
+    path('update-lead-category/', views.update_lead_category, name='update_lead_category'),
+    path('remove-task-from-assignment/', views.remove_task_from_assignment, name='remove_task_from_assignment'),
+
     # DM head (validations, and data fetch)
     path('check-unique/', views.check_unique_field, name='check_unique_field'),
     path('get-client/<int:client_id>/', views.get_client, name='get_client'),
@@ -59,6 +72,11 @@ urlpatterns = [
     path('get-category/<int:category_id>/', views.get_category, name='get_category'),
     path('get-tasks/', views.get_available_tasks, name='get_available_tasks'),
     path('get-field/<int:field_id>/', views.get_field, name='get_field'),
+    path('get-tasks-for-work/<int:work_id>/', views.get_tasks_for_work, name='get_tasks_for_work'),
+    path('get-lead-categories/<int:assign_id>/', views.get_lead_categories_for_task, name='get_lead_categories_for_task'),
+    path('get-teamlead-name/<int:tl_id>/', views.get_teamlead_name, name='get_teamlead_name'),
+    path('get-employees-for-tl/<int:tl_id>/', views.get_employees_for_tl, name='get_employees_for_tl'),
+    path('get-lead-categories-for-tl-task/<int:assign_id>/', views.get_lead_categories_for_tl_task, name='get_lead_categories_for_tl_task'),
 
     # ===================================================== end DM head =====================================================
 

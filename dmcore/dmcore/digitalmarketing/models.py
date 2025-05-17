@@ -363,6 +363,112 @@ class LeadField_Register(models.Model):
 
     def __str__(self):
         return f"{self.name or 'Unnamed Field'}"
+    
+
+# 14 may
+
+class AllocationDetails(models.Model):
+    employee = models.ForeignKey(EmployeeRegister_Details,on_delete=models.CASCADE,null=True,blank=True)  # The employee being allocated
+    team_lead = models.ForeignKey(EmployeeRegister_Details,on_delete=models.CASCADE,related_name="allocated_employees",null=True,blank=True) 
+    # The team lead to whom the employee is allocated
+    allocate_status = models.IntegerField(default=0)
+    allocation_date = models.DateField(auto_now_add=True, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.employee} -> {self.team_lead} ({self.allocate_status})"
+
+
+
+
+class WorkAssign(models.Model):
+    company = models.ForeignKey(BusinessRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    client = models.ForeignKey(ClientRegister, on_delete=models.CASCADE, null=True, blank=True)
+    work_register = models.ForeignKey(WorkRegister, on_delete=models.CASCADE, null=True, blank=True)
+    team_lead = models.ForeignKey(EmployeeRegister_Details,on_delete=models.CASCADE,null=True,blank=True,related_name='allocated_tl')
+    client_task = models.ManyToManyField(ClientTask_Register, related_name='task_allocated')
+    co_workers = models.ManyToManyField(EmployeeRegister_Details, related_name='co_works_allocated')
+    description = models.TextField(null=True, blank=True)
+    file = models.FileField(upload_to='work/files', null=True, blank=True)
+    progress = models.IntegerField(default=0)
+    assign_date = models.DateField(auto_now=True, null=True, blank=True)
+    from_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    status = models.IntegerField(default=0)
+    assign_type = models.IntegerField(default=0)
+    target = models.IntegerField(default=0)
+    target_achieved = models.IntegerField(default=0)
+    
+    # new added fields
+    criteria = models.TextField(null=True, blank=True)
+
+    is_instagram = models.BooleanField(default=False)
+    is_facebook = models.BooleanField(default=False)
+    is_x = models.BooleanField(default=False)
+
+    instagram_target = models.IntegerField(default=0)
+    facebook_target = models.IntegerField(default=0)
+    x_target = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"Assignment for {self.client} - Progress: {self.progress}%"
+    
+    
+class LeadCateogry_TeamAllocate(models.Model):
+    team_lead = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    lead_category = models.ForeignKey(LeadCategory_Register, on_delete=models.CASCADE, null=True, blank=True)
+    work_assign = models.ForeignKey(WorkAssign, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    from_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    target = models.IntegerField(default=0)
+    target_achieved = models.IntegerField(default=0)
+    file = models.FileField(upload_to='work/files', null=True, blank=True)
+    progress = models.IntegerField(default=0)
+    status = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.team_lead} assigned to {self.lead_category} (Progress: {self.progress}%)"
+
+
+class TaskAssign(models.Model):
+    work_assign = models.ForeignKey(WorkAssign, on_delete=models.CASCADE, null=True, blank=True)
+    executive = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    client_task = models.ForeignKey(ClientTask_Register, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    file = models.FileField(upload_to='work/files', null=True, blank=True)
+    progress = models.IntegerField(default=0)
+    allocate_date = models.DateField(null=True, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    target = models.IntegerField(default=0)
+    target_achieved = models.IntegerField(default=0)
+    status = models.IntegerField(default=0)
+    accept_status = models.IntegerField(default=0)
+    accept_date = models.DateField(null=True, blank=True)
+    type = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"Task {self.task} assigned to {self.worker}"
+    
+    
+class LeadCategory_Assign(models.Model):
+    executive = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    team_allocation = models.ForeignKey(LeadCateogry_TeamAllocate, on_delete=models.CASCADE, null=True, blank=True)
+    task_assign = models.ForeignKey(TaskAssign, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    from_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    target = models.IntegerField(default=0)
+    target_achieved = models.IntegerField(default=0)
+    file = models.FileField(upload_to='work/files', null=True, blank=True)
+    progress = models.IntegerField(default=0)
+    status = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.executive} - {self.team_allocation}"
+
+
+
 
 #================================================= end DM Head models ===============================================
 

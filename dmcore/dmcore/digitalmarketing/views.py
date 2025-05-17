@@ -495,6 +495,11 @@ def decline_user(request, login_id):
 
 def dm_work(request):
     user_id = request.session.get('hid')
+    
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
+
     logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
     user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
     employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
@@ -504,9 +509,17 @@ def dm_work(request):
         'logged_in_user': logged_in_user,
         'user_company': user_company,
         'employee_profile': employee_profile,
+        'user': user,
+        'company': company,
+        'name':name
     })
 
 def task_list(request):
+
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
+
     logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
     company = BusinessRegister_Details.objects.get(id=dm_head_profile.company_id)
@@ -540,6 +553,9 @@ def task_list(request):
         'logged_in_user': logged_in_user,
         'user_company': user_company,
         'employee_profile': employee_profile,
+        'user': user,
+        'company': company,
+        'name':name
     }
     return render(request, 'dmhead/task_list.html', context)
 
@@ -555,6 +571,9 @@ phone_regex = re.compile(r'^\d{10}$')
 website_regex = re.compile(r'^https?:\/\/.+\..+')
 
 def register_client(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
     logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
     company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
@@ -673,6 +692,9 @@ def register_client(request):
         'logged_in_user': logged_in_user,
         'user_company': user_company,
         'employee_profile': employee_profile,
+        'user': user,
+        'company': company,
+        'name':name
     })
 
 
@@ -684,6 +706,12 @@ def delete_client(request, client_id):
 
 
 def register_work(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
     works = WorkRegister.objects.all()
     user_id = request.session.get('hid')
     logged_in_user = LogRegister_Details.objects.get(log_username=user_id)
@@ -704,8 +732,106 @@ def register_work(request):
         'logged_in_user': logged_in_user,
         'user_company': user_company,
         'employee_profile': employee_profile,
+        'user': user,
+        'company': company,
+        'name':name
     }
     return render(request, 'dmhead/register_work.html', context)
+
+# allocate work
+def allocate_work_page(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    employee = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = employee.company if employee else None
+
+    team_leads = EmployeeRegister_Details.objects.filter(
+        company=company,
+        designation__dashboard_id='Team_Lead'
+    )
+
+    works = WorkRegister.objects.filter(company=company).select_related('client').prefetch_related('workassign_set__team_lead')
+
+    for work in works:
+        unique_tls = {}
+        for wa in work.workassign_set.all():
+            if wa.team_lead.id not in unique_tls:
+                unique_tls[wa.team_lead.id] = wa
+        work.unique_assignments = list(unique_tls.values())
+
+    return render(request, 'dmhead/allocate_work.html', {
+        'works': works,
+        'team_leads': team_leads,
+        'user': user,
+        'company': company,
+        'name':name
+    })
+
+
+# team lead tasks
+def teamlead_tasks(request, tl_id):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
+    team_lead = EmployeeRegister_Details.objects.get(id=tl_id)
+    assigned_work = WorkAssign.objects.filter(team_lead=team_lead)
+    return render(request, 'dmhead/teamlead_tasks.html', {
+        'team_lead': team_lead,
+        'assigned_works': assigned_work,
+        'user': user,
+        'company': company,
+        'name':name
+    })
+
+
+# add task to executive
+def assign_to_exec_page(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    company = BusinessRegister_Details.objects.filter(login=user).first()
+    name=EmployeeRegister_Details.objects.filter(login=user).first()
+
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
+    employee = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = employee.company if employee else None
+    assignments = []
+
+    work_assigns = WorkAssign.objects.filter(
+        company=company, assign_type=1
+    ).select_related('client', 'team_lead').prefetch_related('client_task')
+
+    for assign in work_assigns:
+        for task in assign.client_task.all():
+            categories = []
+            if task.task_name.strip().lower() == "lead collection":
+                cats = LeadCateogry_TeamAllocate.objects.filter(
+                    work_assign=assign,
+                    lead_category__client_task=task
+                ).values_list('lead_category__collection_for', flat=True)
+                categories = list(cats)
+
+            assignments.append({
+                'assign_id': assign.id,
+                'client_name': assign.client.client_name,
+                'client_profile': assign.client.client_profile.url if assign.client.client_profile else '',
+                'start_date': assign.from_date,
+                'due_date': assign.due_date,
+                'team_lead': assign.team_lead.name,
+                'team_lead_id': assign.team_lead.id,
+                'task_name': task.task_name,
+                'task_id': task.id,
+                'task_description': task.task_description,
+                'is_lead_collection': task.task_name.lower() == 'lead collection',
+                'categories': categories,
+            })
+
+    return render(request, 'dmhead/assign_to_exec.html', {
+        'assignments': assignments,
+        'user': user,
+        'company': company,
+        'name':name
+    })
 
 
 from django.http import JsonResponse
@@ -1060,6 +1186,290 @@ def add_field(request):
         return JsonResponse({'success': False, 'message': str(e)})
 
 
+# assign work save
+@csrf_exempt
+def submit_work_allocation(request):
+    if request.method == 'POST':
+        try:
+            work_id = request.POST.get('work_id')
+            task_id = request.POST.get('task_id')
+            team_lead_id = request.POST.get('team_lead')
+            work_type = request.POST.get('work_type')
+            from_date = request.POST.get('start_date')
+            due_date = request.POST.get('due_date')
+            target = request.POST.get('target')
+            description = request.POST.get('description', '')
+            file = request.FILES.get('file')
+            criteria = request.POST.get('criteria', '').strip()
+
+            is_instagram = bool(request.POST.get('is_instagram'))
+            is_facebook = bool(request.POST.get('is_facebook'))
+            is_x = bool(request.POST.get('is_x'))
+
+            instagram_target = request.POST.get('instagram_target') or 0
+            facebook_target = request.POST.get('facebook_target') or 0
+            x_target = request.POST.get('x_target') or 0
+
+            category_ids = request.POST.getlist('category')
+
+            work = WorkRegister.objects.get(id=work_id)
+            task = ClientTask_Register.objects.get(id=task_id)
+            team_lead = EmployeeRegister_Details.objects.get(id=team_lead_id)
+            company = work.company
+            client = work.client
+            assign_type = 1 if work_type == 'group' else 0
+
+            # check existing lead collection logic (same work, same task, same type, same TL)
+            if task.task_name.strip().lower() == "lead collection":
+                existing = WorkAssign.objects.filter(
+                    work_register_id=work_id,
+                    client_task=task,
+                    assign_type=assign_type,
+                    team_lead=team_lead
+                )
+                if assign_type == 0 and existing.exists():
+                    return JsonResponse({'success': False, 'message': 'Single Lead Collection already assigned to this TL.'})
+                if assign_type == 1 and existing.exists():
+                    return JsonResponse({'success': False, 'message': 'Group Lead Collection already assigned to this TL.'})
+
+            work_assign = WorkAssign.objects.create(
+                company=company,
+                client=client,
+                work_register=work,
+                team_lead=team_lead,
+                from_date=from_date,
+                due_date=due_date,
+                target=target,
+                description=description,
+                file=file,
+                assign_type=assign_type,
+                status=1,
+                criteria=criteria,
+                is_instagram=is_instagram,
+                is_facebook=is_facebook,
+                is_x=is_x,
+                instagram_target=instagram_target,
+                facebook_target=facebook_target,
+                x_target=x_target
+            )
+            work_assign.client_task.add(task)
+
+            work.work_allocate_status = 1
+            work.save()
+
+            if task.task_name.strip().lower() == "lead collection":
+                for cid in category_ids:
+                    category = LeadCategory_Register.objects.get(id=cid)
+                    LeadCateogry_TeamAllocate.objects.create(
+                        team_lead=team_lead,
+                        lead_category=category,
+                        work_assign=work_assign,
+                        from_date=from_date,
+                        due_date=due_date,
+                        target=target,
+                        description=description,
+                        file=file,
+                        status=1
+                    )
+
+            return JsonResponse({'success': True, 'message': 'Work assigned to TL'})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+# add new categoried to existing work in TL view
+@csrf_exempt
+def add_lead_category_to_existing_assignment(request):
+    if request.method == 'POST':
+        try:
+            assign_id = request.POST.get('assign_id')
+            from_date = request.POST.get('start_date')
+            due_date = request.POST.get('end_date')
+            target = request.POST.get('target')
+            description = request.POST.get('description', '')
+            file = request.FILES.get('file')
+            category_ids = request.POST.getlist('category')
+
+            work_assign = WorkAssign.objects.get(id=assign_id)
+            team_lead = work_assign.team_lead
+
+            for cid in category_ids:
+                category = LeadCategory_Register.objects.get(id=cid)
+                LeadCateogry_TeamAllocate.objects.create(
+                    team_lead=team_lead,
+                    lead_category=category,
+                    work_assign=work_assign,
+                    from_date=from_date,
+                    due_date=due_date,
+                    target=target,
+                    description=description,
+                    file=file,
+                    status=1
+                )
+
+            return JsonResponse({'success': True, 'message': 'Category(ies) added successfully'})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
+# delete category from work TL view
+@csrf_exempt
+def delete_lead_category(request, category_id):
+    try:
+        record = LeadCateogry_TeamAllocate.objects.get(id=category_id)
+        record.delete()
+        return JsonResponse({'success': True, 'message': 'Lead category assignment deleted.'})
+    except LeadCateogry_TeamAllocate.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Record not found.'})
+
+
+
+# delete assigned task to TL
+@csrf_exempt
+@require_POST
+def delete_all_tasks_for_tl(request, work_id, tl_id):
+    try:
+        assigns = WorkAssign.objects.filter(work_register_id=work_id, team_lead_id=tl_id)
+        count = assigns.count()
+        assigns.delete()
+        return JsonResponse({'success': True, 'message': f'{count} task(s) deleted for this Team Lead.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+# update lead task in team lead view
+@csrf_exempt
+@require_POST
+def update_lead_category(request):
+    try:
+        lead_alloc = LeadCateogry_TeamAllocate.objects.get(id=request.POST.get('edit_id'))
+        work_assign = lead_alloc.work_assign
+
+        # Shared values
+        target = request.POST.get('target')
+        from_date = request.POST.get('start_date')
+        due_date = request.POST.get('end_date')
+        description = request.POST.get('description')
+
+        # Update LeadCateogry_TeamAllocate
+        lead_alloc.target = target
+        lead_alloc.from_date = from_date
+        lead_alloc.due_date = due_date
+        lead_alloc.description = description
+        lead_alloc.save()
+
+        # Update WorkAssign
+        work_assign.target = target
+        work_assign.from_date = from_date
+        work_assign.due_date = due_date
+        work_assign.description = description
+        work_assign.save()
+
+        return JsonResponse({'success': True, 'message': 'Lead category & work updated.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# delete assigned work (team lead view)
+@csrf_exempt
+@require_POST
+def remove_task_from_assignment(request):
+    try:
+        import json
+        data = json.loads(request.body)
+        assign_id = data.get("assign_id")
+        task_id = data.get("task_id")
+        task_name = data.get("task_name")
+
+        assign = WorkAssign.objects.get(id=assign_id)
+        task = ClientTask_Register.objects.get(id=task_id)
+
+        # Remove task from M2M
+        assign.client_task.remove(task)
+
+        # Delete related category assignments if "Lead Collection"
+        if task_name == "lead collection":
+            LeadCateogry_TeamAllocate.objects.filter(
+                work_assign=assign,
+                team_lead=assign.team_lead,
+                lead_category__client_task=task
+            ).delete()
+
+        if assign.client_task.count() == 0:
+            assign.delete()
+            return JsonResponse({'success': True, 'message': 'Task and assignment fully removed.'})
+
+        return JsonResponse({'success': True, 'message': f'Task "{task.task_name}" removed.'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# save the allocations
+@csrf_exempt
+@csrf_exempt
+def assign_to_executives(request):
+    if request.method == 'POST':
+        try:
+            task_id = request.POST.get('task_id')
+            team_assign_id = request.POST.get('team_allocation_id')
+            employee_ids = request.POST.getlist('executives')
+            from_date = request.POST.get('start_date')
+            due_date = request.POST.get('due_date')
+            target = request.POST.get('target')
+            description = request.POST.get('description', '')
+            file = request.FILES.get('file')
+            lead_category_id = request.POST.get('lead_category')  # Only if task is Lead Collection
+
+            task = ClientTask_Register.objects.get(id=task_id)
+            team_assign = WorkAssign.objects.get(id=team_assign_id)
+            company = team_assign.company
+            client = team_assign.client
+
+            for eid in employee_ids:
+                executive = EmployeeRegister_Details.objects.get(id=eid)
+
+                # Create TaskAssign
+                task_assign = TaskAssign.objects.create(
+                    work_assign=team_assign,
+                    executive=executive,
+                    client_task=task,
+                    description=description,
+                    file=file,
+                    allocate_date=from_date,
+                    start_date=from_date,
+                    due_date=due_date,
+                    target=target,
+                    status=1
+                )
+
+                # If task is Lead Collection, also save to LeadCategory_Assign
+                if task.task_name.strip().lower() == "lead collection" and lead_category_id:
+                    # Find the correct TL-category assignment for this category
+                    team_category = LeadCateogry_TeamAllocate.objects.filter(
+                        work_assign=team_assign,
+                        lead_category_id=lead_category_id
+                    ).first()
+
+                    if not team_category:
+                        return JsonResponse({'success': False, 'message': 'Category assignment to TL not found.'})
+
+                    LeadCategory_Assign.objects.create(
+                        executive=executive,
+                        team_allocation=team_category,
+                        task_assign=task_assign,
+                        description=description,
+                        from_date=from_date,
+                        due_date=due_date,
+                        target=target,
+                        file=file,
+                        status=1
+                    )
+
+            messages.success(request, "Task assigned to executive(s) successfully.")
+            return JsonResponse({'success': True, 'message': 'Task assigned to executives successfully.'})
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+
 # Js get calls
 from django.http import JsonResponse, Http404
 
@@ -1192,5 +1602,91 @@ def get_category(request, category_id):
         return JsonResponse(data)
     except LeadCategory_Register.DoesNotExist:
         return JsonResponse({'error': 'Category not found'}, status=404)
+    
+# getting task for allocation
+def get_tasks_for_work(request, work_id):
+    try:
+        print(f'======================called {work_id}')
+        tasks = ClientTask_Register.objects.filter(work_id=work_id)
+        task_list = []
+        for task in tasks:
+            task_data = {
+                'id': task.id,
+                'name': task.task_name,
+                'description': task.task_description or '',
+                'is_lead_collection': task.task_name.lower() == 'lead collection'
+            }
+            if task_data['is_lead_collection']:
+                categories = LeadCategory_Register.objects.filter(client_task=task)
+                task_data['categories'] = [{'id': cat.id, 'name': cat.collection_for} for cat in categories]
+            task_list.append(task_data)
+        return JsonResponse({'success': True, 'tasks': task_list})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# lead categoried in team leader page
+def get_lead_categories_for_task(request, assign_id):
+    print(f'==============================called {assign_id}')
+    try:
+        # Get the current assignment and work ID
+        assign = WorkAssign.objects.get(id=assign_id)
+        work_id = assign.work_register.id
+
+        # Get the ClientTask with the name 'Lead Collection' for this work
+        client_task = ClientTask_Register.objects.filter(
+            work_id=work_id,
+            task_name__iexact="lead collection"
+        ).first()
+
+        if not client_task:
+            return JsonResponse({'success': False, 'categories': [], 'message': 'No Lead Collection task found for this work.'})
+
+        # All categories for the matched task
+        all_categories = LeadCategory_Register.objects.filter(client_task=client_task)
+
+        # Categories already assigned to any TL in this work
+        assigned_ids = LeadCateogry_TeamAllocate.objects.filter(
+            work_assign_id=assign_id
+        ).values_list('lead_category_id', flat=True)
+
+        # Filter out already assigned categories
+        available = all_categories.exclude(id__in=assigned_ids)
+
+        data = [{'id': cat.id, 'name': cat.collection_for} for cat in available]
+        return JsonResponse({'success': True, 'categories': data})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'categories': [], 'message': str(e)})
+
+# TL name
+def get_teamlead_name(request, tl_id):
+    try:
+        tl = EmployeeRegister_Details.objects.get(id=tl_id)
+        return JsonResponse({'success': True, 'name': tl.name})
+    except EmployeeRegister_Details.DoesNotExist:
+        return JsonResponse({'success': False, 'name': 'Team Lead'})
+
+# to get TL's executives
+def get_employees_for_tl(request, tl_id):
+    employees = AllocationDetails.objects.filter(team_lead_id=tl_id).select_related('employee')
+    data = [
+        {'id': emp.employee.id, 'name': emp.employee.name}
+        for emp in employees if emp.employee.designation and emp.employee.designation.dashboard_id == 'Executive'
+    ]
+    return JsonResponse(data, safe=False)
+
+def get_lead_categories_for_tl_task(request, assign_id):
+    try:
+        categories = LeadCateogry_TeamAllocate.objects.filter(
+            work_assign_id=assign_id
+        ).select_related('lead_category')
+
+        data = [{'id': c.lead_category.id, 'name': c.lead_category.collection_for} for c in categories]
+        return JsonResponse({'success': True, 'categories': data})
+    except:
+        return JsonResponse({'success': False, 'categories': []})
+
+
+
 
 # ======================================================== DM head ================================================================
