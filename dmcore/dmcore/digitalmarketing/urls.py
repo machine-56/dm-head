@@ -83,4 +83,20 @@ urlpatterns = [
     path('get-full-workassign/<int:assign_id>/', views.get_full_workassign, name='get_full_workassign'),
 
     # ===================================================== end DM head =====================================================
+    
+    # ===================================================== teamlead =====================================================
+    path('TL/work/', views.teamlead_work, name='teamlead_work'),
+    path('individual-work/', views.individual_work_main, name='individual_work_main'),
+    path('tl-new-works/', views.tl_new_works, name='tl_new_works'),
+    path('tl-ongoing-works/', views.tl_ongoing_works, name='tl_ongoing_works'),
+    path('tl-daily-work-leads/<int:team_alloc_id>/', views.tl_daily_work_leads, name='tl_daily_work_leads'),
+    path('tl_view_daily_work/<int:task_assign_id>/', views.tl_view_daily_work, name='tl_view_daily_work'),
+    path('tl-completed-works/', views.tl_completed_works, name='tl_completed_works'),
+    
+    # fetch calls
+    path('tl-get-data-workassign/', views.tl_get_data_workassign, name='tl_get_data_workassign'),
+    path('tl-get-data-leadcateogry-teamallocate/', views.tl_get_data_leadcateogry_teamallocate, name='tl_get_data_leadcateogry_teamallocate'),
+
+    # ===================================================== teamlead =====================================================
+
 ]

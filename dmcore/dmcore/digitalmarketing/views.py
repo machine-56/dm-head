@@ -1,6 +1,7 @@
 import re
 from django.http import HttpResponse, JsonResponse
 from django.core.files.storage import default_storage
+from datetime import date                                 #!===================== new import
 
 from django.shortcuts import render,redirect
 from django.contrib import messages
@@ -144,6 +145,8 @@ def dmhead(request):
     try:
         user = LogRegister_Details.objects.get(log_username=hid)
         company = BusinessRegister_Details.objects.filter(login=user).first()
+        print(f'testing =========================[DEBUGGING] from dmhead : {company}')
+
         print("dashboard",company)
         name=EmployeeRegister_Details.objects.filter(login=user).first()
     except LogRegister_Details.DoesNotExist:
@@ -572,11 +575,13 @@ website_regex = re.compile(r'^https?:\/\/.+\..+')
 
 def register_client(request):
     user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
-    company = BusinessRegister_Details.objects.filter(login=user).first()
+    employee = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = employee.company if employee else None
+
     name=EmployeeRegister_Details.objects.filter(login=user).first()
     logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
-    company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    # company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
     user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
     employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
 
@@ -687,7 +692,7 @@ def register_client(request):
         return redirect('register_client')
 
     clients = ClientRegister.objects.filter(company=company)
-    return render(request, 'dmhead/register_client.html', {
+    context = {
         'clients': clients,
         'logged_in_user': logged_in_user,
         'user_company': user_company,
@@ -695,7 +700,9 @@ def register_client(request):
         'user': user,
         'company': company,
         'name':name
-    })
+    }
+    print(context)
+    return render(request, 'dmhead/register_client.html', context)
 
 
 def delete_client(request, client_id):
@@ -707,10 +714,9 @@ def delete_client(request, client_id):
 
 def register_work(request):
     user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
-    company = BusinessRegister_Details.objects.filter(login=user).first()
-    name=EmployeeRegister_Details.objects.filter(login=user).first()
-    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
-    company = BusinessRegister_Details.objects.filter(login=user).first()
+    employee = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = employee.company if employee else None
+
     name=EmployeeRegister_Details.objects.filter(login=user).first()
     works = WorkRegister.objects.filter(company=company)
     user_id = request.session.get('hid')
@@ -736,6 +742,7 @@ def register_work(request):
         'company': company,
         'name':name
     }
+    print(context)
     return render(request, 'dmhead/register_work.html', context)
 
 # allocate work
@@ -1798,3 +1805,437 @@ def get_full_workassign(request, assign_id):
 
 
 # ======================================================== DM head ================================================================
+
+
+# ======================================================== teamlead ================================================================
+def teamlead_work(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
+    name = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = name.company if name else None
+
+    context={
+        'user': user,
+        'company': company,
+        'name': name,
+    }
+    return render(request, 'teamlead/tl_works.html', context)
+
+
+def individual_work_main(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
+    name = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = name.company if name else None
+
+    context={
+        'user': user,
+        'company': company,
+        'name': name,
+    }
+    print(context)
+    return render(request, 'teamlead/individual_work_main.html', context)
+
+
+@csrf_exempt
+def tl_new_works(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
+    name = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = name.company if name else None
+
+    # Accept logic
+    if request.method == 'POST':
+        task_type = request.POST.get('type')
+        object_id = request.POST.get('id')
+        try:
+            if task_type == 'normal':
+                task = WorkAssign.objects.get(id=object_id)
+                task.status = 2
+                task.accept_date = date.today()
+                task.save()
+                print(f"[DEBUG] Accepted WorkAssign {object_id}")  #!========delete this line =============
+
+            elif task_type == 'lead_collection':
+                record = LeadCateogry_TeamAllocate.objects.get(id=object_id)
+                record.status = 2
+                record.accept_date = date.today()
+                record.save()
+                print(f"[DEBUG] Accepted LeadCateogry_TeamAllocate {object_id}")  #!========delete this line =============
+
+        except Exception as e:
+            print(f"[ERROR] Accept failed: {e}")  #!========delete this line =============
+            
+    # GET logic (same as now)
+    all_data = []
+
+    work_assigns = WorkAssign.objects.filter(team_lead=name, status=1).select_related('client')
+    print(f'[DEBUG]================={name}=======================================')
+    for assign in work_assigns:
+        for task in assign.client_task.all():
+            if task.task_name.strip().lower() != "lead collection":
+                all_data.append({
+                    'type': 'normal',
+                    'assign_id': assign.id,
+                    'task_id': task.id,
+                    'task_name': task.task_name,
+                    'task_description': assign.description or '',
+                    'start_date': assign.from_date,
+                    'end_date': assign.due_date,
+                    'assign_date': assign.assign_date,
+                    'accept_date': assign.accept_date,
+                    'client_name': assign.client.client_name if assign.client else '',
+                    'target': assign.target,
+                    'file_url': assign.file.url if assign.file else ''
+                })
+
+    lead_tasks = LeadCateogry_TeamAllocate.objects.filter(team_lead=name, status=1).select_related('lead_category', 'work_assign__client')
+    for record in lead_tasks:
+        lead = record.lead_category
+        assign = record.work_assign
+        all_data.append({
+            'type': 'lead_collection',
+            'team_alloc_id': record.id,
+            'assign_id': assign.id,
+            'task_id': lead.id,
+            'task_name': lead.collection_for or 'Lead Collection',
+            'task_description': record.description or '',
+            'start_date': record.from_date,
+            'end_date': record.due_date,
+            'assign_date': assign.assign_date,
+            'client_name': assign.client.client_name if assign.client else '',
+            'accept_date': record.accept_date,
+            'target': record.target,
+            'file_url': record.file.url if record.file else ''
+        })
+
+    context = {
+        'user': user,
+        'company': company,
+        'name': name,
+        'new_works': all_data,
+    }
+
+    return render(request, 'teamlead/tl_new_works.html', context)
+
+def tl_ongoing_works(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
+    name = EmployeeRegister_Details.objects.filter(login=user).first()
+    company = name.company if name else None
+
+    #* ======================== POST: Save Daily Work Report =======================
+    if request.method == 'POST':
+        print("[POST DATA]", request.POST)  #!========delete this line =============
+
+        try:
+            task_assign_id = request.POST.get('task_assign_id')
+            title = request.POST.get('title')
+            description = request.POST.get('work_description')
+            achieved = int(request.POST.get('achieved') or 0)
+            uploaded_file = request.FILES.get('work_file')
+
+            task_assign = TaskAssign.objects.get(id=task_assign_id)
+            target = task_assign.target
+
+
+            # Save daily task
+            task_detail = TaskDetails(
+                task_assign=task_assign,
+                title=title,
+                description=description,
+                target=target,
+                status=0,
+                achieved_target=achieved
+            )
+
+            if uploaded_file:
+                task_detail.file = uploaded_file
+
+            task_detail.save()
+
+            messages.success(request, "Daily report added successfully.")
+            print(f"[DEBUG] Daily work saved for TaskAssign ID {task_assign_id}")  #!========delete this line =============
+            return redirect('tl_ongoing_works')
+
+        except Exception as e:
+            messages.error(request, "Failed to submit daily report.")
+            print(f"[ERROR] Failed to save daily work: {e}")  #!========delete this line =============
+            return redirect('tl_ongoing_works')
+
+
+    #* ======================== GET: Render Ongoing Works ==========================
+    all_data = []
+
+    work_assigns = WorkAssign.objects.filter(team_lead=name, status=2).select_related('client')
+    print(f'[DEBUG]=============================TL name : {name}========================================')
+    for assign in work_assigns:
+        for task in assign.client_task.all():
+            if task.task_name.strip().lower() != "lead collection":
+                task_assign = TaskAssign.objects.filter(work_assign=assign, client_task=task).first()
+                if not task_assign:
+                    continue  # skip if no matching TaskAssign
+
+                progress = 0
+                try:
+                    progress = int((assign.target_achieved / assign.target) * 100) if assign.target else 0
+                except:
+                    pass
+
+                all_data.append({
+                    'type': 'normal',
+                    'assign_id': assign.id,
+                    'task_assign_id': task_assign.id,
+                    'task_id': task.id,
+                    'task_name': task.task_name,
+                    'task_description': assign.description or '',
+                    'start_date': assign.from_date,
+                    'end_date': assign.due_date,
+                    'assign_date': assign.assign_date,
+                    'accept_date': assign.accept_date,
+                    'client_name': assign.client.client_name if assign.client else '',
+                    'target': assign.target,
+                    'achieved': assign.target_achieved,
+                    'file_url': assign.file.url if assign.file else '',
+                    'progress': progress,
+                })
+
+    lead_tasks = LeadCateogry_TeamAllocate.objects.filter(team_lead=name, status=2).select_related('lead_category', 'work_assign__client')
+    for record in lead_tasks:
+        lead = record.lead_category
+        assign = record.work_assign
+        task_assign = TaskAssign.objects.filter(
+            work_assign=assign,
+            client_task__task_name__iexact='lead collection'
+        ).first()
+
+        progress = 0
+        try:
+            progress = int((record.target_achieved / record.target) * 100) if record.target else 0
+        except:
+            pass
+
+        all_data.append({
+            'type': 'lead_collection',
+            'team_alloc_id': record.id,
+            'assign_id': assign.id,
+            'task_assign_id': task_assign.id,
+            'task_id': lead.id,
+            'task_name': lead.collection_for or 'Lead Collection',
+            'task_description': record.description or '',
+            'start_date': record.from_date,
+            'end_date': record.due_date,
+            'assign_date': assign.assign_date,
+            'accept_date': record.accept_date,
+            'client_name': assign.client.client_name if assign.client else '',
+            'target': record.target,
+            'achieved': record.target_achieved,
+            'file_url': record.file.url if record.file else '',
+            'progress': progress,
+        })
+
+    context = {
+        'user': user,
+        'company': company,
+        'name': name,
+        'ongoing_works': all_data,
+        'today': date.today(),
+    }
+
+    print(f"[DEBUG] Ongoing Works Count for TL {name.name}: {len(all_data)}")  #!========delete this line =============
+    return render(request, 'teamlead/tl_ongoing_works.html', context)
+
+
+
+
+def tl_daily_work_leads(request, team_alloc_id): 
+
+    if request.method == 'POST':
+        try:
+            task_assign_id = request.POST.get('task_assign_id')
+            title = request.POST.get('title')
+            description = request.POST.get('work_description')
+            achieved = int(request.POST.get('achieved') or 0)
+            uploaded_file = request.FILES.get('work_file')
+
+            task_assign = get_object_or_404(TaskAssign, id=task_assign_id)
+            target = task_assign.target
+
+            # Save daily task
+            task_detail = TaskDetails(
+                task_assign=task_assign,
+                title=title,
+                description=description,
+                target=target,
+                status=0,
+                achieved_target=achieved,
+                verified_target=0
+            )
+
+            if uploaded_file:
+                task_detail.file = uploaded_file
+
+            task_detail.save()
+            messages.success(request, "Lead Collection daily work added successfully.")
+            print(f"[DEBUG] Saved daily work for TaskAssign ID {task_assign_id}")  #!========delete this line =============
+            return redirect('tl_daily_work_leads', team_alloc_id=team_alloc_id)
+
+        except Exception as e:
+            messages.error(request, "Failed to save daily work.")
+            print(f"[ERROR] Failed to save daily work: {e}")  #!========delete this line =============
+            return redirect('tl_daily_work_leads', team_alloc_id=team_alloc_id)
+
+    # *=================== page rendering logic ==========================
+    team_alloc = LeadCateogry_TeamAllocate.objects.select_related(
+        'lead_category', 'work_assign__client'
+    ).filter(id=team_alloc_id).first()
+
+    if not team_alloc:
+        messages.error(request, "Invalid team allocation ID.")
+        return redirect('tl_ongoing_works')
+
+    client = team_alloc.work_assign.client
+    lead_category = team_alloc.lead_category
+
+    # Fetch custom fields
+    custom_fields = LeadField_Register.objects.filter(
+        lead_category=lead_category
+    ).values_list('name', flat=True)
+
+
+    task_assign = TaskAssign.objects.filter(
+        work_assign=team_alloc.work_assign,
+        client_task__task_name__iexact='lead collection'
+    ).first()
+
+    progress = task_assign.progress
+
+    context = {
+        'today': date.today(),
+        'clients': [{
+            'client_name': client.client_name,
+            'from_date': team_alloc.from_date,
+            'due_date': team_alloc.due_date,
+            'progress': progress,
+            'required_fields': list(custom_fields)
+        }],
+        'team_alloc_id': team_alloc.id,
+        'lead_category_name': lead_category.collection_for,
+        'task_name': 'Lead Collection',
+        'task_assign_id': task_assign.id,
+    }
+
+    return render(request, 'teamlead/tl_lead_daily_table.html', context)
+
+
+def tl_view_daily_work(request, task_assign_id):
+    task = TaskAssign.objects.filter(id=task_assign_id).first()
+    if not task:
+        messages.error(request, "Invalid TaskAssign ID.")
+        return redirect('tl_ongoing_works')
+
+    reports = TaskDetails.objects.filter(task_assign=task)
+
+    context = {
+        'task': task,
+        'reports': reports,
+    }
+    return render(request, 'teamlead/tl_view_daily_work.html', context)
+
+
+# completed page render
+def tl_completed_works(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
+    name = EmployeeRegister_Details.objects.filter(login=user).first()
+
+    all_data = []
+
+    work_assigns = WorkAssign.objects.filter(team_lead=name, status=3).select_related('client')
+    for assign in work_assigns:
+        for task in assign.client_task.all():
+            if task.task_name.strip().lower() != "lead collection":
+                task_assign = TaskAssign.objects.filter(work_assign=assign, client_task=task).first()
+                if not task_assign:
+                    continue
+
+                progress = task_assign.progress if hasattr(task_assign, 'progress') else 0
+
+                all_data.append({
+                    'task_name': task.task_name,
+                    'start_date': assign.from_date,
+                    'end_date': assign.due_date,
+                    'accept_date': assign.accept_date,
+                    'task_assign_id': task_assign.id,
+                    'progress': progress,
+                })
+
+    context = {
+        'completed_tasks': all_data
+    }
+
+    return render(request, 'teamlead/tl_completed_works.html', context)
+
+
+# fetch data from db
+@csrf_exempt
+def tl_get_data_workassign(request):
+    tl_id = request.GET.get('id')
+    status = request.GET.get('status')
+
+    print(f"[DEBUG] WorkAssign fetch for TL: {tl_id} with status: {status}")  #!========delete this line =============
+
+    try:
+        data = []
+        records = WorkAssign.objects.filter(team_lead_id=tl_id, status=status).select_related('client', 'team_lead')
+        for rec in records:
+            for task in rec.client_task.all():
+                if task.task_name.strip().lower() != 'lead collection':
+                    data.append({
+                        'type': 'normal',
+                        'assign_id': rec.id,
+                        'task_id': task.id,
+                        'task_name': task.task_name,
+                        'task_description': task.task_description,
+                        'start_date': rec.from_date,
+                        'end_date': rec.due_date,
+                        'assign_date': rec.assign_date,
+                        'accept_date': rec.accept_date,
+                        'client_name': rec.client.client_name if rec.client else '',
+                        'target': rec.target,
+                        'file_url': rec.file.url if rec.file else '',
+                    })
+        return JsonResponse({'success': True, 'data': data})
+    except Exception as e:
+        print(f"[ERROR] tl_get_data_workassign failed: {e}")  #!========delete this line =============
+        return JsonResponse({'success': False, 'message': str(e)})
+    
+
+@csrf_exempt
+def tl_get_data_leadcateogry_teamallocate(request):
+    tl_id = request.GET.get('id')
+    status = request.GET.get('status')
+
+    print(f"[DEBUG] LeadCateogry_TeamAllocate fetch for TL: {tl_id} with status: {status}")  #!========delete this line =============
+
+    try:
+        data = []
+        records = LeadCateogry_TeamAllocate.objects.filter(team_lead_id=tl_id, status=status).select_related('lead_category', 'work_assign__client')
+        for rec in records:
+            lead = rec.lead_category
+            data.append({
+                'type': 'lead_collection',
+                'assign_id': rec.work_assign.id,
+                'category_id': lead.id,
+                'task_name': 'Lead Collection',
+                'task_description': lead.description,
+                'start_date': rec.from_date,
+                'end_date': rec.due_date,
+                'assign_date': rec.work_assign.assign_date,
+                'accept_date': rec.work_assign.accept_date,
+                'client_name': rec.work_assign.client.client_name if rec.work_assign.client else '',
+                'target': rec.target,
+                'file_url': rec.file.url if rec.file else '',
+                'team_alloc_id': rec.id,
+            })
+        return JsonResponse({'success': True, 'data': data})
+    except Exception as e:
+        print(f"[ERROR] tl_get_data_leadcateogry_teamallocate failed: {e}")  #!========delete this line =============
+        return JsonResponse({'success': False, 'message': str(e)})
+
+# ======================================================== teamlead ================================================================

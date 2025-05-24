@@ -139,6 +139,19 @@
   </div>
 </nav>
 
+  <!-- Messages -->
+  <div class="messages-container" style="position: fixed; top: 40px; right: 10px; z-index: 1099;">
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show mb-2" style="min-width: 280px;" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+  <!-- /Messages -->
+
 <!-- Sidebar -->
 <div id="sidebar" class="border-end d-none d-md-block">
   <div class="px-3 d-flex justify-content-between align-items-center mb-3">

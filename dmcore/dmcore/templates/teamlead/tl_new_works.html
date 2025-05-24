@@ -1,0 +1,135 @@
+{% extends 'teamlead/teamleadsidebar.html' %}
+{% load static %}
+{% block title %}New Works{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'teamlead/css/tl_new_works.css' %}">
+<div class="container mt-4 comn_table_bg">
+  <h5 class="text-white mb-3">New Works Assigned</h5>
+
+  <div class="input-group w-auto mb-3 ">
+    <input type="text" class="form-control bg-dark  text-white" placeholder="Search..." id="searchInput">
+    <button class="btn btn-light" id="clearSearch">Clear</button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-dark table-striped align-middle text-center" id="newWorksTable">
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Task Name</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Assigned Date</th>
+          <th>Task Detail</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for work in new_works %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ work.task_name }}</td>
+          <td>{{ work.start_date|default:"-" }}</td>
+          <td>{{ work.end_date|default:"-" }}</td>
+          <td>{{ work.assign_date|default:"-" }}</td>
+          <td>
+            <button class="btn btn-info btn-sm view-btn"
+              data-client="{{ work.client_name }}"
+              data-assign="{{ work.assign_date }}"
+              data-accept="{{ work.accept_date }}"
+              data-name="{{ work.task_name }}"
+              data-target="{{ work.target }}"
+              data-start="{{ work.start_date }}"
+              data-end="{{ work.end_date }}"
+              data-description="{{ work.task_description }}"
+              data-file="{{ work.file_url|default:'' }}"
+            >View</button>
+          </td>
+          <td>
+            <form method="POST" action="{% url 'tl_new_works' %}" class="accept-form d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="type" value="{{ work.type }}">
+              <input type="hidden" name="id" value="{% if work.type == 'normal' %}{{ work.assign_id }}{% else %}{{ work.team_alloc_id }}{% endif %}">
+              <button type="submit" class="btn btn-success btn-sm">Accept</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7">No new works assigned</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="taskDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Task Detail</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label>Client Name</label>
+            <input type="text" class="form-control" id="modalClientName" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Allocated Date</label>
+            <input type="text" class="form-control" id="modalAssignDate" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Task Name</label>
+            <input type="text" class="form-control" id="modalTaskName" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Target</label>
+            <input type="text" class="form-control" id="modalTarget" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Start Date</label>
+            <input type="text" class="form-control" id="modalStartDate" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>End Date</label>
+            <input type="text" class="form-control" id="modalEndDate" readonly>
+          </div>
+          <div class="col-12 mb-3">
+            <label>Description</label>
+            <textarea class="form-control" id="modalDescription" rows="3" readonly></textarea>
+          </div>
+          <div class="col-12" id="modalFileContainer" style="display:none;">
+            <a id="modalDownloadLink" class="text-info" target="_blank">Download Attached File</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'teamlead/js/tl_new_works.js' %}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("searchInput");
+    const clearBtn = document.getElementById("clearSearch");
+    const rows = document.querySelectorAll("#newWorksTable tbody tr");
+
+    function filterRows() {
+      const searchTerm = searchInput.value.toLowerCase();
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? "" : "none";
+      });
+    }
+
+    searchInput.addEventListener("keyup", filterRows);
+    clearBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      filterRows();
+    });
+  });
+</script>
+{% endblock %}

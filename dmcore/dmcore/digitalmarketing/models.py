@@ -2,6 +2,7 @@
 
 # Create your models here.
 from django.db import models
+from datetime import date
 
 # Create your models here.
 class LogRegister_Details(models.Model):  
@@ -390,7 +391,8 @@ class WorkAssign(models.Model):
     description = models.TextField(null=True, blank=True)
     file = models.FileField(upload_to='work/files', null=True, blank=True)
     progress = models.IntegerField(default=0)
-    assign_date = models.DateField(auto_now=True, null=True, blank=True)
+    assign_date = models.DateField(default=date.today, null=True, blank=True)   #! =============== edited
+    accept_date = models.DateField(null=True, blank=True)    #! =============== new field
     from_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
     status = models.IntegerField(default=0)
@@ -420,6 +422,7 @@ class LeadCateogry_TeamAllocate(models.Model):
     description = models.TextField(null=True, blank=True)
     from_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
+    accept_date = models.DateField(null=True, blank=True)   #! =========== new field
     target = models.IntegerField(default=0)
     target_achieved = models.IntegerField(default=0)
     file = models.FileField(upload_to='work/files', null=True, blank=True)
@@ -471,6 +474,24 @@ class LeadCategory_Assign(models.Model):
 
 
 #================================================= end DM Head models ===============================================
+
+#================================================= team Leader models ===============================================
+
+class TaskDetails(models.Model):
+    task_assign = models.ForeignKey(TaskAssign, on_delete=models.CASCADE, null=True, blank=True)
+    collect_date = models.DateField(auto_now=True, null=True, blank=True)
+    title = models.CharField(max_length=255, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    file = models.FileField(upload_to='daily_work/files/', null=True, blank=True)
+    target = models.IntegerField(default=0)
+    achieved_target = models.IntegerField(default=0)
+    verified_target = models.IntegerField(default=0)
+    status = models.IntegerField(default=0)
+
+    def _str_(self):
+        return f"{self.title or 'Task Detail'}"
+
+#================================================= end Team leader models ===============================================
 
 
     
