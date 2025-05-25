@@ -505,7 +505,7 @@ class TaskDetails_tl(models.Model):
     status = models.IntegerField(default=0)
 
     def __str__(self):
-        return self.title or f"Daily Report ({self.collect_date})"
+        return self.title or 'Task Detail TL'
 
 #================================================= end Team leader models ===============================================
 
