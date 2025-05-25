@@ -478,7 +478,7 @@ class LeadCategory_Assign(models.Model):
 #================================================= team Leader models ===============================================
 
 class TaskDetails(models.Model):
-    task_assign = models.ForeignKey(TaskAssign, on_delete=models.CASCADE, null=True, blank=True)
+    task_assign = models.ForeignKey(TaskAssign, on_delete=models.CASCADE, null=True, blank=True) 
     collect_date = models.DateField(auto_now=True, null=True, blank=True)
     title = models.CharField(max_length=255, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
@@ -490,6 +490,22 @@ class TaskDetails(models.Model):
 
     def _str_(self):
         return f"{self.title or 'Task Detail'}"
+
+class TaskDetails_tl(models.Model):
+    is_category = models.BooleanField(default=False)
+    work_assign = models.ForeignKey(WorkAssign, null=True, blank=True, on_delete=models.CASCADE, related_name='tl_task_details')
+    category_assign = models.ForeignKey(LeadCateogry_TeamAllocate, null=True, blank=True, on_delete=models.CASCADE, related_name='tl_category_details')
+    collect_date = models.DateField(auto_now=True, null=True, blank=True)
+    title = models.CharField(max_length=255, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    file = models.FileField(upload_to='daily_work/files/', null=True, blank=True)
+    target = models.IntegerField(default=0)
+    achieved_target = models.IntegerField(default=0)
+    verified_target = models.IntegerField(default=0)
+    status = models.IntegerField(default=0)
+
+    def __str__(self):
+        return self.title or f"Daily Report ({self.collect_date})"
 
 #================================================= end Team leader models ===============================================
 

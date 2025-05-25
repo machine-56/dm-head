@@ -1,7 +1,9 @@
 {% extends 'teamlead/teamleadsidebar.html' %}
+{% load static %}
 {% block title %}Completed Works{% endblock %}
-
 {% block content %}
+<link rel="stylesheet" href="{% static 'teamlead/css/tl_ongoing_works.css' %}">
+
 <div class="container mt-4 comn_table_bg">
   <h5 class="text-white mb-3">Completed Works</h5>
 
@@ -30,7 +32,18 @@
           <td>{{ task.end_date }}</td>
           <td>{{ task.accept_date }}</td>
           <td>
-            <button class="btn btn-outline-info btn-sm">View</button>
+            <button class="btn btn-outline-info btn-sm view-btn"
+              data-client="{{ task.client_name }}"
+              data-assign="{{ task.assign_date }}"
+              data-accept="{{ task.accept_date }}"
+              data-name="{{ task.task_name }}"
+              data-target="{{ task.target }}"
+              data-achieved="{{ task.achieved }}"
+              data-start="{{ task.start_date }}"
+              data-end="{{ task.end_date }}"
+              data-description="{{ task.task_description }}"
+              data-file="{{ task.file_url|default:'' }}"
+            >View</button>
           </td>
           <td>
             <a href="{% url 'tl_view_daily_work' task.task_assign_id %}" class="btn btn-outline-info btn-sm">View</a>
@@ -53,6 +66,64 @@
     <p class="text-white">No completed tasks available.</p>
   {% endif %}
 </div>
+
+<!-- Modal: View Completed Task -->
+<div class="modal fade" id="viewTaskModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Task Detail</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label>Client Name</label>
+            <input type="text" class="form-control" id="v_client" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Allocated Date</label>
+            <input type="text" class="form-control" id="v_allocated" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Accepted Date</label>
+            <input type="text" class="form-control" id="v_accepted" readonly>
+          </div>
+          <div class="col-12 mb-3">
+            <label>Task Name</label>
+            <input type="text" class="form-control" id="v_taskname" readonly>
+          </div>
+          <div class="col-12 mb-3">
+            <label>Task Description</label>
+            <textarea class="form-control" id="v_description" rows="3" readonly></textarea>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Start Date</label>
+            <input type="text" class="form-control" id="v_start" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>End Date</label>
+            <input type="text" class="form-control" id="v_end" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Target</label>
+            <input type="text" class="form-control" id="v_target" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Achieved</label>
+            <input type="text" class="form-control" id="v_achieved" readonly>
+          </div>
+          <div class="col-12" id="v_file_box" style="display:none;">
+            <a href="#" id="v_file_link" target="_blank" class="text-info">Download File</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="{% static 'teamlead/js/completed_works.js' %}"></script>
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {

@@ -1,15 +1,3 @@
-console.log('js loaded');  // !========delete this line =============
-
-document.addEventListener('DOMContentLoaded', () => {
-  // Set progress bar widths
-  document.querySelectorAll('.progress-bar').forEach(bar => {
-    const value = parseInt(bar.dataset.progress || '0');
-    bar.style.width = `${value}%`;
-    bar.innerText = `${value}%`;
-    bar.setAttribute('aria-valuenow', value);
-  });
-
-  // View modal logic
   document.querySelectorAll('.view-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('v_client').value = btn.dataset.client || '';
@@ -35,20 +23,3 @@ document.addEventListener('DOMContentLoaded', () => {
       new bootstrap.Modal(document.getElementById('viewTaskModal')).show();
     });
   });
-
-  // Add Daily Work Modal (only for normal tasks)
-  document.querySelectorAll('.add-daily-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const taskName = btn.dataset.name || '';
-      const assignId = btn.dataset.assignid || '';
-
-      document.getElementById('d_taskname').value = taskName;
-
-      // Optional: store assign ID in hidden input
-      const hidden = document.getElementById('task_assign_id');
-      if (hidden) hidden.value = assignId;
-
-      new bootstrap.Modal(document.getElementById('addDailyModal')).show();
-    });
-  });
-});

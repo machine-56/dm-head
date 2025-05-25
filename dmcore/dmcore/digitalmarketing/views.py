@@ -1834,14 +1834,11 @@ def individual_work_main(request):
     print(context)
     return render(request, 'teamlead/individual_work_main.html', context)
 
-
-@csrf_exempt
 def tl_new_works(request):
     user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
     name = EmployeeRegister_Details.objects.filter(login=user).first()
     company = name.company if name else None
 
-    # Accept logic
     if request.method == 'POST':
         task_type = request.POST.get('type')
         object_id = request.POST.get('id')
@@ -1863,11 +1860,10 @@ def tl_new_works(request):
         except Exception as e:
             print(f"[ERROR] Accept failed: {e}")  #!========delete this line =============
             
-    # GET logic (same as now)
     all_data = []
 
     work_assigns = WorkAssign.objects.filter(team_lead=name, status=1).select_related('client')
-    print(f'[DEBUG]================={name}=======================================')
+    print(f'[DEBUG]================={name}=======================================')  #!========delete this line =============
     for assign in work_assigns:
         for task in assign.client_task.all():
             if task.task_name.strip().lower() != "lead collection":
@@ -1920,38 +1916,49 @@ def tl_ongoing_works(request):
     name = EmployeeRegister_Details.objects.filter(login=user).first()
     company = name.company if name else None
 
-    #* ======================== POST: Save Daily Work Report =======================
+    #? ======================== POST: Save Daily Work Report =======================
     if request.method == 'POST':
         print("[POST DATA]", request.POST)  #!========delete this line =============
 
         try:
-            task_assign_id = request.POST.get('task_assign_id')
+            assign_id = int(request.POST.get('task_assign_id'))
+            is_category = request.POST.get('is_category') == 'true'
             title = request.POST.get('title')
             description = request.POST.get('work_description')
             achieved = int(request.POST.get('achieved') or 0)
             uploaded_file = request.FILES.get('work_file')
 
-            task_assign = TaskAssign.objects.get(id=task_assign_id)
-            target = task_assign.target
-
-
-            # Save daily task
-            task_detail = TaskDetails(
-                task_assign=task_assign,
-                title=title,
-                description=description,
-                target=target,
-                status=0,
-                achieved_target=achieved
-            )
+            if is_category:
+                record = LeadCateogry_TeamAllocate.objects.get(id=assign_id)
+                target = record.target
+                task_detail = TaskDetails_tl(
+                    is_category=True,
+                    category_assign=record,
+                    target=target,
+                    achieved_target=achieved,
+                    title=title,
+                    description=description,
+                    status=0
+                )
+            else:
+                record = WorkAssign.objects.get(id=assign_id)
+                target = record.target
+                task_detail = TaskDetails_tl(
+                    is_category=False,
+                    work_assign=record,
+                    target=target,
+                    achieved_target=achieved,
+                    title=title,
+                    description=description,
+                    status=0
+                )
 
             if uploaded_file:
                 task_detail.file = uploaded_file
 
             task_detail.save()
-
             messages.success(request, "Daily report added successfully.")
-            print(f"[DEBUG] Daily work saved for TaskAssign ID {task_assign_id}")  #!========delete this line =============
+            print(f"[DEBUG] Daily work saved for {'CategoryAssign' if is_category else 'WorkAssign'} ID {assign_id}")  #!========delete this line =============
             return redirect('tl_ongoing_works')
 
         except Exception as e:
@@ -1959,8 +1966,7 @@ def tl_ongoing_works(request):
             print(f"[ERROR] Failed to save daily work: {e}")  #!========delete this line =============
             return redirect('tl_ongoing_works')
 
-
-    #* ======================== GET: Render Ongoing Works ==========================
+    #? ======================== GET: Render Ongoing Works ==========================
     all_data = []
 
     work_assigns = WorkAssign.objects.filter(team_lead=name, status=2).select_related('client')
@@ -1968,21 +1974,10 @@ def tl_ongoing_works(request):
     for assign in work_assigns:
         for task in assign.client_task.all():
             if task.task_name.strip().lower() != "lead collection":
-                task_assign = TaskAssign.objects.filter(work_assign=assign, client_task=task).first()
-                if not task_assign:
-                    continue  # skip if no matching TaskAssign
-
-                progress = 0
-                try:
-                    progress = int((assign.target_achieved / assign.target) * 100) if assign.target else 0
-                except:
-                    pass
-
                 all_data.append({
                     'type': 'normal',
-                    'assign_id': assign.id,
-                    'task_assign_id': task_assign.id,
-                    'task_id': task.id,
+                    'is_category': False,
+                    'task_assign_id': assign.id,
                     'task_name': task.task_name,
                     'task_description': assign.description or '',
                     'start_date': assign.from_date,
@@ -1993,30 +1988,18 @@ def tl_ongoing_works(request):
                     'target': assign.target,
                     'achieved': assign.target_achieved,
                     'file_url': assign.file.url if assign.file else '',
-                    'progress': progress,
+                    'progress': assign.progress,
                 })
 
     lead_tasks = LeadCateogry_TeamAllocate.objects.filter(team_lead=name, status=2).select_related('lead_category', 'work_assign__client')
     for record in lead_tasks:
         lead = record.lead_category
         assign = record.work_assign
-        task_assign = TaskAssign.objects.filter(
-            work_assign=assign,
-            client_task__task_name__iexact='lead collection'
-        ).first()
-
-        progress = 0
-        try:
-            progress = int((record.target_achieved / record.target) * 100) if record.target else 0
-        except:
-            pass
 
         all_data.append({
             'type': 'lead_collection',
-            'team_alloc_id': record.id,
-            'assign_id': assign.id,
-            'task_assign_id': task_assign.id,
-            'task_id': lead.id,
+            'is_category': True,
+            'task_assign_id': record.id,
             'task_name': lead.collection_for or 'Lead Collection',
             'task_description': record.description or '',
             'start_date': record.from_date,
@@ -2027,7 +2010,7 @@ def tl_ongoing_works(request):
             'target': record.target,
             'achieved': record.target_achieved,
             'file_url': record.file.url if record.file else '',
-            'progress': progress,
+            'progress': record.progress,
         })
 
     context = {
@@ -2042,29 +2025,26 @@ def tl_ongoing_works(request):
     return render(request, 'teamlead/tl_ongoing_works.html', context)
 
 
-
-
-def tl_daily_work_leads(request, team_alloc_id): 
-
+def tl_daily_work_leads(request, team_alloc_id):
     if request.method == 'POST':
         try:
-            task_assign_id = request.POST.get('task_assign_id')
+            assign_id = int(request.POST.get('team_alloc_id'))
             title = request.POST.get('title')
             description = request.POST.get('work_description')
             achieved = int(request.POST.get('achieved') or 0)
             uploaded_file = request.FILES.get('work_file')
 
-            task_assign = get_object_or_404(TaskAssign, id=task_assign_id)
-            target = task_assign.target
+            record = get_object_or_404(LeadCateogry_TeamAllocate, id=assign_id)
+            target = record.target
 
-            # Save daily task
-            task_detail = TaskDetails(
-                task_assign=task_assign,
+            task_detail = TaskDetails_tl(
+                is_category=True,
+                category_assign=record,
+                target=target,
+                achieved_target=achieved,
                 title=title,
                 description=description,
-                target=target,
                 status=0,
-                achieved_target=achieved,
                 verified_target=0
             )
 
@@ -2073,15 +2053,16 @@ def tl_daily_work_leads(request, team_alloc_id):
 
             task_detail.save()
             messages.success(request, "Lead Collection daily work added successfully.")
-            print(f"[DEBUG] Saved daily work for TaskAssign ID {task_assign_id}")  #!========delete this line =============
-            return redirect('tl_daily_work_leads', team_alloc_id=team_alloc_id)
+            print(f"[DEBUG] Saved daily work for CategoryAssign ID {assign_id}")  #!========delete this line =============
+            return redirect('tl_daily_work_leads', team_alloc_id=assign_id)
 
         except Exception as e:
             messages.error(request, "Failed to save daily work.")
             print(f"[ERROR] Failed to save daily work: {e}")  #!========delete this line =============
             return redirect('tl_daily_work_leads', team_alloc_id=team_alloc_id)
 
-    # *=================== page rendering logic ==========================
+
+    # ?=================== page rendering logic ==========================
     team_alloc = LeadCateogry_TeamAllocate.objects.select_related(
         'lead_category', 'work_assign__client'
     ).filter(id=team_alloc_id).first()
@@ -2093,18 +2074,9 @@ def tl_daily_work_leads(request, team_alloc_id):
     client = team_alloc.work_assign.client
     lead_category = team_alloc.lead_category
 
-    # Fetch custom fields
     custom_fields = LeadField_Register.objects.filter(
         lead_category=lead_category
     ).values_list('name', flat=True)
-
-
-    task_assign = TaskAssign.objects.filter(
-        work_assign=team_alloc.work_assign,
-        client_task__task_name__iexact='lead collection'
-    ).first()
-
-    progress = task_assign.progress
 
     context = {
         'today': date.today(),
@@ -2112,34 +2084,41 @@ def tl_daily_work_leads(request, team_alloc_id):
             'client_name': client.client_name,
             'from_date': team_alloc.from_date,
             'due_date': team_alloc.due_date,
-            'progress': progress,
+            'progress': team_alloc.progress,
             'required_fields': list(custom_fields)
         }],
         'team_alloc_id': team_alloc.id,
         'lead_category_name': lead_category.collection_for,
         'task_name': 'Lead Collection',
-        'task_assign_id': task_assign.id,
     }
 
     return render(request, 'teamlead/tl_lead_daily_table.html', context)
 
 
 def tl_view_daily_work(request, task_assign_id):
-    task = TaskAssign.objects.filter(id=task_assign_id).first()
-    if not task:
-        messages.error(request, "Invalid TaskAssign ID.")
-        return redirect('tl_ongoing_works')
 
-    reports = TaskDetails.objects.filter(task_assign=task)
+    task = WorkAssign.objects.filter(id=task_assign_id).first()
+    is_category = False
+
+    if not task:
+        task = LeadCateogry_TeamAllocate.objects.filter(id=task_assign_id).first()
+        is_category = True if task else False
+    if not task:
+        messages.error(request, "Invalid Task Reference ID.")
+        return redirect('tl_ongoing_works')
+    if is_category:
+        reports = TaskDetails_tl.objects.filter(category_assign=task, is_category=True)
+    else:
+        reports = TaskDetails_tl.objects.filter(work_assign=task, is_category=False)
 
     context = {
         'task': task,
         'reports': reports,
+        'is_category': is_category,
     }
+
     return render(request, 'teamlead/tl_view_daily_work.html', context)
 
-
-# completed page render
 def tl_completed_works(request):
     user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
     name = EmployeeRegister_Details.objects.filter(login=user).first()
@@ -2150,20 +2129,42 @@ def tl_completed_works(request):
     for assign in work_assigns:
         for task in assign.client_task.all():
             if task.task_name.strip().lower() != "lead collection":
-                task_assign = TaskAssign.objects.filter(work_assign=assign, client_task=task).first()
-                if not task_assign:
-                    continue
-
-                progress = task_assign.progress if hasattr(task_assign, 'progress') else 0
-
                 all_data.append({
+                    'type': 'normal',
                     'task_name': task.task_name,
                     'start_date': assign.from_date,
                     'end_date': assign.due_date,
+                    'assign_date': assign.assign_date,
                     'accept_date': assign.accept_date,
-                    'task_assign_id': task_assign.id,
-                    'progress': progress,
+                    'client_name': assign.client.client_name if assign.client else '',
+                    'task_description': assign.description or '',
+                    'target': assign.target,
+                    'achieved': assign.target_achieved,
+                    'file_url': assign.file.url if assign.file else '',
+                    'task_assign_id': assign.id,
+                    'progress': assign.progress,
                 })
+
+    lead_records = LeadCateogry_TeamAllocate.objects.filter(team_lead=name, status=3).select_related('lead_category', 'work_assign__client')
+    for record in lead_records:
+        lead = record.lead_category
+        assign = record.work_assign
+
+        all_data.append({
+            'type': 'lead_collection',
+            'task_name': lead.collection_for or 'Lead Collection',
+            'start_date': record.from_date,
+            'end_date': record.due_date,
+            'assign_date': assign.assign_date,
+            'accept_date': record.accept_date,
+            'client_name': assign.client.client_name if assign.client else '',
+            'task_description': record.description or '',
+            'target': record.target,
+            'achieved': record.target_achieved,
+            'file_url': record.file.url if record.file else '',
+            'task_assign_id': record.id,
+            'progress': record.progress,
+        })
 
     context = {
         'completed_tasks': all_data

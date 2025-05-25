@@ -52,10 +52,12 @@
                 data-name="{{ work.task_name }}"
                 data-assignid="{{ work.task_assign_id }}"
               >Add</button>
-            {% elif work.type == 'lead_collection' %}
-              <a href="{% url 'tl_daily_work_leads' work.team_alloc_id %}" class="btn btn-outline-info btn-sm">
+            {% elif work.type == 'lead_collection' and work.task_assign_id %}
+              <a href="{% url 'tl_daily_work_leads' work.task_assign_id %}" class="btn btn-outline-info btn-sm">
                 Add
               </a>
+            {% else %}
+              <button class="btn btn-outline-secondary btn-sm" disabled>Add</button>
             {% endif %}
           </td>
         <td class="table_en_sm">
@@ -187,7 +189,4 @@
 </div>
 
 <script src="{% static 'teamlead/js/tl_ongoing_works.js' %}"></script>
-<script>
-  console.log('is console broken??')
-</script>
 {% endblock %}
