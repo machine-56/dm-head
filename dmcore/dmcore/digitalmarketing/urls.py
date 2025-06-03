@@ -92,10 +92,17 @@ urlpatterns = [
     path('tl-daily-work-leads/<int:team_alloc_id>/', views.tl_daily_work_leads, name='tl_daily_work_leads'),
     path('tl_view_daily_work/<int:task_assign_id>/', views.tl_view_daily_work, name='tl_view_daily_work'),
     path('tl-completed-works/', views.tl_completed_works, name='tl_completed_works'),
+    # !new
+    path('manage-leads/<int:team_alloc_id>/<int:lead_category_id>/', views.manage_leads_page, name='manage_leads_page'),
+    path('add-lead/', views.add_lead_manual, name='add_lead_manual'),
+    path('upload-leads/', views.upload_leads_excel, name='upload_leads_excel'),
+    path('download_leads_excel/<int:lead_category_id>/<int:team_alloc_id>/', views.download_leads_excel, name='download_leads_excel'),
+
     
     # fetch calls
     path('tl-get-data-workassign/', views.tl_get_data_workassign, name='tl_get_data_workassign'),
     path('tl-get-data-leadcateogry-teamallocate/', views.tl_get_data_leadcateogry_teamallocate, name='tl_get_data_leadcateogry_teamallocate'),
+    path('get-lead-details/<int:lead_id>/', views.get_lead_details, name='get_lead_details'),
 
     # ===================================================== teamlead =====================================================
 

@@ -4,8 +4,20 @@
 {% block title %}Lead Collection - Add Daily Work{% endblock %}
 
 {% block content %}
-<!-- <link rel="stylesheet" href="{% static 'teamlead/css/lead_daily_table.css' %}"> -->
+<link rel="stylesheet" href="{% static 'teamlead/css/common.css' %}">
 <link rel="stylesheet" href="{% static 'teamlead/css/tl_ongoing_works.css' %}">
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-dark text-white px-3 py-2 rounded">
+    <li class="breadcrumb-item">
+      <a href="{% url 'individual_work_main' %}" class="text-decoration-none text-white-50">Individual Works</a>
+    </li>
+    <li class="breadcrumb-item">
+      <a href="{% url 'tl_ongoing_works' %}" class="text-decoration-none text-white-50">Ongoing Works</a>
+    </li>
+    <li class="breadcrumb-item active text-white" aria-current="page">Add Daily Works</li>
+  </ol>
+</nav>
 
 <div class="container mt-4 comn_table_bg">
   <h5 class="text-white mb-4">Lead Collection - Daily Work</h5>
@@ -28,10 +40,10 @@
         {% for client in clients %}
         <tr>
           <td>{{ forloop.counter }}</td>
-          <td>{{ client.client_name }}</td>
-          <td>{{ client.from_date }}</td>
-          <td>{{ client.due_date }}</td>
-          <td>
+          <td class="table_en_lsm">{{ client.client_name }}</td>
+          <td class="table_en_lsm">{{ client.from_date }}</td>
+          <td class="table_en_lsm">{{ client.due_date }}</td>
+          <td class="table_en_lsm">
             <div class="progress" style="height: 20px;">
             <div class="progress-bar" role="progressbar"
                  data-progress="{{ client.progress }}"
@@ -39,7 +51,7 @@
             </div>
             </div>
           </td>
-          <td>
+          <td class="table_en_md">
             <ul class=" mb-0" style="list-style:decimal; text-align: justify;">
               <li>First Name</li>
               <li>Email</li>
@@ -50,11 +62,14 @@
               {% endfor %}
             </ul>
           </td>
-          <td>
-            <button class="btn btn-outline-warning btn-sm" disabled>Leads</button>
+          <td class="table_en_lsm">
+            <button class="btn btn-outline-warning btn-sm"
+                    onclick="window.location.href='/manage-leads/{{ team_alloc_id }}/{{ client.lead_category_id }}/'">
+              Add Leads
+            </button>
           </td>
-          <td>
-            <button class="btn btn-outline-info btn-sm">Add</button>
+          <td class="table_en_lsm">
+            <button class="btn btn-outline-info btn-sm">Add Report</button>
           </td>
         </tr>
         {% empty %}

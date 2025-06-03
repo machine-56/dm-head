@@ -478,6 +478,9 @@ class LeadCategory_Assign(models.Model):
 #================================================= team Leader models ===============================================
 
 class TaskDetails(models.Model):
+    is_category = models.BooleanField(default=False)
+    work_assign = models.ForeignKey(WorkAssign, null=True, blank=True, on_delete=models.CASCADE)
+    category_assign = models.ForeignKey(LeadCateogry_TeamAllocate, null=True, blank=True, on_delete=models.CASCADE)
     task_assign = models.ForeignKey(TaskAssign, on_delete=models.CASCADE, null=True, blank=True) 
     collect_date = models.DateField(auto_now=True, null=True, blank=True)
     title = models.CharField(max_length=255, null=True, blank=True)
@@ -491,21 +494,39 @@ class TaskDetails(models.Model):
     def _str_(self):
         return f"{self.title or 'Task Detail'}"
 
-class TaskDetails_tl(models.Model):
-    is_category = models.BooleanField(default=False)
-    work_assign = models.ForeignKey(WorkAssign, null=True, blank=True, on_delete=models.CASCADE, related_name='tl_task_details')
-    category_assign = models.ForeignKey(LeadCateogry_TeamAllocate, null=True, blank=True, on_delete=models.CASCADE, related_name='tl_category_details')
-    collect_date = models.DateField(auto_now=True, null=True, blank=True)
-    title = models.CharField(max_length=255, null=True, blank=True)
-    description = models.TextField(null=True, blank=True)
-    file = models.FileField(upload_to='daily_work/files/', null=True, blank=True)
-    target = models.IntegerField(default=0)
-    achieved_target = models.IntegerField(default=0)
-    verified_target = models.IntegerField(default=0)
+class Leads(models.Model):
+    work = models.ForeignKey(WorkRegister, on_delete=models.CASCADE, null=True, blank=True)
+    collected_by = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    task_assign = models.ForeignKey(TaskAssign, on_delete=models.CASCADE, null=True, blank=True)
+    lead_category = models.ForeignKey(LeadCategory_Register, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    contact = models.CharField(max_length=255, null=True, blank=True)
+    source = models.CharField(max_length=255, null=True, blank=True)
+    added_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    added_time = models.TimeField(auto_now_add=True, null=True, blank=True)
+    waste_data = models.IntegerField(default=0)
+    waste_data_reason = models.TextField(null=True, blank=True)
     status = models.IntegerField(default=0)
+    transfer_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    transfer_status = models.IntegerField(default=0)
+    incomplete_status = models.IntegerField(default=0)
+    target_update_status = models.IntegerField(default=0)
+    repeated_status = models.IntegerField(default=0)
 
     def __str__(self):
-        return self.title or 'Task Detail TL'
+        return self.name or "Unnamed Lead"
+    
+    
+class LeadDetails(models.Model):
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
+    field_name = models.CharField(max_length=255, null=True, blank=True)
+    field_data = models.CharField(max_length=855, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.field_name}: {self.field_data}"
+
+
 
 #================================================= end Team leader models ===============================================
 

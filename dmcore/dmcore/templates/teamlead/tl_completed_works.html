@@ -3,6 +3,17 @@
 {% block title %}Completed Works{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'teamlead/css/tl_ongoing_works.css' %}">
+<link rel="stylesheet" href="{% static 'teamlead/css/common.css' %}">
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-dark text-white px-3 py-2 rounded">
+    <li class="breadcrumb-item">
+      <a href="{% url 'individual_work_main' %}" class="text-decoration-none text-white-50">Individual Works</a>
+    </li>
+    <li class="breadcrumb-item active text-white" aria-current="page">Completed Works</li>
+  </ol>
+</nav>
+
 
 <div class="container mt-4 comn_table_bg">
   <h5 class="text-white mb-3">Completed Works</h5>
@@ -27,11 +38,11 @@
         {% for task in completed_tasks %}
         <tr>
           <td>{{ forloop.counter }}</td>
-          <td>{{ task.task_name }}</td>
-          <td>{{ task.start_date }}</td>
-          <td>{{ task.end_date }}</td>
-          <td>{{ task.accept_date }}</td>
-          <td>
+          <td class="table_en_lsm" >{{ task.task_name }}</td>
+          <td class="table_en_lsm" >{{ task.start_date }}</td>
+          <td class="table_en_lsm" >{{ task.end_date }}</td>
+          <td class="table_en_lsm" >{{ task.accept_date }}</td>
+          <td class="table_en_lsm" >
             <button class="btn btn-outline-info btn-sm view-btn"
               data-client="{{ task.client_name }}"
               data-assign="{{ task.assign_date }}"
@@ -45,10 +56,10 @@
               data-file="{{ task.file_url|default:'' }}"
             >View</button>
           </td>
-          <td>
+          <td class="table_en_lsm" >
             <a href="{% url 'tl_view_daily_work' task.task_assign_id %}" class="btn btn-outline-info btn-sm">View</a>
           </td>
-          <td>
+          <td class="table_en_lsm" >
             <div class="progress" style="height: 20px;">
               <div class="progress-bar" role="progressbar"
                    data-progress="{{ task.progress }}"
@@ -56,7 +67,7 @@
               </div>
             </div>
           </td>
-          <td><span class="badge bg-success">Completed</span></td>
+          <td class="table_en_lsm" ><span class="badge bg-success">Completed</span></td>
         </tr>
         {% endfor %}
       </tbody>

@@ -10,6 +10,9 @@ document.querySelectorAll('.add-field-category').forEach(btn => {
         document.getElementById('add_field_client').value = data.client_name;
         document.getElementById('add_field_category').value = data.collection_for;
 
+        document.getElementById('edit_client_id').value = data.client_id;
+        document.getElementById('edit_work_id').value = data.work_id;
+
         const modal = new bootstrap.Modal(document.getElementById('addFieldModal'));
         modal.show();
       });

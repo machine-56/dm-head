@@ -4,12 +4,24 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'teamlead/css/tl_ongoing_works.css' %}">
+<link rel="stylesheet" href="{% static 'teamlead/css/common.css' %}">
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-dark text-white px-3 py-2 rounded">
+    <li class="breadcrumb-item"><a href="{% url 'individual_work_main' %}" class="text-decoration-none text-white-50">Individual Works</a></li>
+    <li class="breadcrumb-item active text-white" aria-current="page">Ongoing Works</li>
+  </ol>
+</nav>
 
 <div class="container mt-4 comn_table_bg">
   <h5 class="text-white mb-3">Ongoing Works</h5>
 
+  <div class="input-group w-auto mb-3">
+    <input type="text" class="form-control bg-dark" placeholder="Search..." id="searchInput">
+    <button class="btn btn-light" id="clearSearch">Clear</button>
+  </div>
   <div class="table-responsive">
-    <table class="table table-dark table-striped align-middle text-center">
+    <table class="table table-dark table-striped align-middle text-center" id="targetTable">
       <thead>
         <tr>
           <th>No</th>
@@ -28,11 +40,11 @@
         {% for work in ongoing_works %}
         <tr>
           <td>{{ forloop.counter }}</td>
-          <td class="table_en_sm">{{ work.task_name }}</td>
-          <td class="table_en_sm">{{ work.start_date|default:"-" }}</td>
-          <td class="table_en_sm">{{ work.end_date|default:"-" }}</td>
-          <td class="table_en_sm">{{ work.accept_date|default:"-" }}</td>
-          <td class="table_en_sm">
+          <td class="table_en_lsm">{{ work.task_name }}</td>
+          <td class="table_en_lsm">{{ work.start_date|default:"-" }}</td>
+          <td class="table_en_lsm">{{ work.end_date|default:"-" }}</td>
+          <td class="table_en_lsm">{{ work.accept_date|default:"-" }}</td>
+          <td class="table_en_lsm">
             <button class="btn btn-outline-info btn-sm view-btn"
               data-client="{{ work.client_name }}"
               data-assign="{{ work.assign_date }}"
@@ -44,9 +56,15 @@
               data-end="{{ work.end_date }}"
               data-description="{{ work.task_description }}"
               data-file="{{ work.file_url|default:'' }}"
+              data-instagram-show="{{ work.is_instagram|yesno:'1,0' }}"
+              data-facebook-show="{{ work.is_facebook|yesno:'1,0' }}"
+              data-twitter-show="{{ work.is_x|yesno:'1,0' }}"
+              data-instagram="{{ work.instagram_target }}"
+              data-facebook="{{ work.facebook_target }}"
+              data-twitter="{{ work.x_target }}"
             >View</button>
           </td>
-          <td class="table_en_sm">
+          <td class="table_en_lsm">
             {% if work.type == 'normal' %}
               <button class="btn btn-outline-info btn-sm add-daily-btn"
                 data-name="{{ work.task_name }}"
@@ -60,10 +78,10 @@
               <button class="btn btn-outline-secondary btn-sm" disabled>Add</button>
             {% endif %}
           </td>
-        <td class="table_en_sm">
+        <td class="table_en_lsm">
           <a href="{% url 'tl_view_daily_work' work.task_assign_id %}" class="btn btn-outline-info btn-sm">View</a>
         </td>
-        <td class="table_en_sm">
+        <td class="table_en_lsm">
           <div class="progress" style="height: 20px;">
             <div class="progress-bar" role="progressbar"
                  data-progress="{{ work.progress }}"
@@ -71,7 +89,7 @@
             </div>
           </div>
         </td>
-          <td class="table_en_sm">
+          <td class="table_en_lsm">
             <form method="POST" action="#">
               {% csrf_token %}
               <button class="btn btn-success btn-sm" disabled>Submit</button> <!--TODO: do it after lead collection thing backend logic later -->
@@ -132,8 +150,20 @@
             <label>Achieved</label>
             <input type="text" class="form-control" id="v_achieved" readonly>
           </div>
+          <div class="col-md-4 mb-3" style="display: none;">
+            <label>Instagram Target</label>
+            <input type="text" class="form-control" id="v_instagram" readonly>
+          </div>
+          <div class="col-md-4 mb-3" style="display: none;">
+            <label>Facebook Target</label>
+            <input type="text" class="form-control" id="v_facebook" readonly>
+          </div>
+          <div class="col-md-4 mb-3" style="display: none;">
+            <label>Twitter Target</label>
+            <input type="text" class="form-control" id="v_twitter" readonly>
+          </div>
           <div class="col-12" id="v_file_box" style="display:none;">
-            <a href="#" id="v_file_link" target="_blank" class="text-info">Download File</a>
+            <a href="#" id="v_file_link" target="_blank" class="btn btn-outline-info">Download File</a>
           </div>
         </div>
       </div>
@@ -189,4 +219,25 @@
 </div>
 
 <script src="{% static 'teamlead/js/tl_ongoing_works.js' %}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("searchInput");
+    const clearBtn = document.getElementById("clearSearch");
+    const rows = document.querySelectorAll("#targetTable tbody tr");
+
+    function filterRows() {
+      const searchTerm = searchInput.value.toLowerCase();
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? "" : "none";
+      });
+    }
+
+    searchInput.addEventListener("keyup", filterRows);
+    clearBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      filterRows();
+    });
+  });
+</script>
 {% endblock %}

@@ -1,0 +1,166 @@
+{% extends 'teamlead/teamleadsidebar.html' %}
+{% load static %}
+{% block title %}Manage Leads{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'teamlead/css/common.css' %}">
+<link rel="stylesheet" href="{% static 'teamlead/css/manage_leads.css' %}">
+<script src="{% static 'teamlead/js/manage_leads.js' %}"></script>
+
+<!-- CDN: Add to manage_leads.html -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb bg-dark text-white px-3 py-2 rounded">
+    <li class="breadcrumb-item">
+      <a href="{% url 'individual_work_main' %}" class="text-decoration-none text-white-50">Individual Works</a>
+    </li>
+    <li class="breadcrumb-item">
+      <a href="{% url 'tl_ongoing_works' %}" class="text-decoration-none text-white-50">Ongoing Works</a>
+    </li>
+    <li class="breadcrumb-item">
+      <a href="{% url 'tl_daily_work_leads' team_alloc_id %}" class="text-decoration-none text-white-50">Add Daily Works</a>
+    </li>
+    <li class="breadcrumb-item active text-white" aria-current="page">Add Leads</li>
+  </ol>
+</nav>
+
+<div class="container mt-4 comn_table_bg">
+  <h5 class="text-white mb-3">Lead Management</h5>
+
+  <div class="mb-3 d-flex flex-wrap gap-2 gap-sm-3 gap-md-2 buttons-responsive">
+    <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#addLeadModal">Data Form</button>
+    <form method="POST" action="{% url 'upload_leads_excel' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="team_alloc_id" value="{{ team_alloc_id }}">
+      <label class="btn btn-outline-danger btn-sm mb-0 upload-btn-custom">
+        Upload Leads
+        <input type="file" name="excel_file" hidden onchange="this.form.submit()" accept=".xlsx,.xls">
+      </label>
+    </form>
+    <a href="{% url 'download_leads_excel' lead_category_id team_alloc_id %}" class="btn btn-outline-info btn-sm">Download Leads</a>
+  </div>
+
+  <div class="input-group w-auto mb-3">
+    <input type="text" class="form-control bg-dark text-white" placeholder="Search..." id="searchInput">
+    <button class="btn btn-light" id="clearSearch">Clear</button>
+  </div>
+
+  {% if leads %}
+  <div class="table-responsive">
+    <table id="leadTable" class="table table-dark table-striped table-hover align-middle text-center" id="targetTable">
+      <thead>
+        <tr>
+          <th class="text-center">Collected On</th>
+          <th class="text-center">Name</th>
+          <th class="text-center">Email</th>
+          <th class="text-center">Contact</th>
+          <th class="text-center">Status</th>
+          <th class="text-center">Repeated</th>
+          <th class="nosort">Quick Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead, _ in leads %}
+        <tr>
+          <td class="table_en_lsm">{{ lead.added_date|date:"d-M-y" }} | {{ lead.added_time }}</td>
+          <td class="table_en_md">{{ lead.name }}</td>
+          <td class="table_en_md">{{ lead.email }}</td>
+          <td class="table_en_lsm">{{ lead.contact }}</td>
+          <td>
+            <span class="badge bg-purple">{{ lead.status|yesno:"Verified,New" }}</span>
+          </td>
+          <td>
+            <span class="badge bg-purple">{{ lead.repeated_status|yesno:"Yes,No" }}</span>
+          </td>
+          <td  class="table_en_sm">
+            <button class="btn btn-outline-info btn-sm show-lead-details" data-id="{{ lead.id }}">+</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="text-white">No leads added yet.</p>
+  {% endif %}
+</div>
+
+<!-- Add Lead Modal -->
+<div class="modal fade" id="addLeadModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Lead</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addLeadForm">
+        {% csrf_token %}
+        <input type="hidden" name="team_alloc_id" value="{{ team_alloc_id }}">
+        <div class="modal-body row">
+          <div class="col-md-6 mb-3"><label>Name</label><input class="form-control" name="name" required></div>
+          <div class="col-md-6 mb-3"><label>Email</label><input class="form-control" name="email" required></div>
+          <div class="col-md-6 mb-3"><label>Contact Number</label><input class="form-control" name="contact_number" required></div>
+          <div class="col-md-6 mb-3">
+            <label>Lead Source</label>
+            <select class="form-select" name="lead_source" required>
+              <option value="" selected disabled>Choose...</option>
+              <option value="Social Media">Social Media</option>
+              <option value="Referrals">Referrals</option>
+              <option value="Email Campaigns">Email Campaigns</option>
+              <option value="Website Signup">Website Signup</option>
+              <option value="Paid Ads">Paid Ads</option>
+              <option value="Events & Webinars">Events & Webinars</option>
+              <option value="Cold Outreach">Cold Outreach</option>
+              <option value="Organic Search">Organic Search</option>
+            </select>
+          </div>
+          {% for field in required_fields %}
+          <div class="col-md-6 mb-3">
+            <label>{{ field }}</label>
+            <input class="form-control" name="dynamic_{{ field|slugify }}" required>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="modal-footer border-0">
+          <button type="submit" class="btn btn-success">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Lead Details Offcanvas -->
+<div class="offcanvas offcanvas-end bg-dark text-white" tabindex="-1" id="leadDetailCanvas">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title">Lead Details</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+  </div>
+  <div class="offcanvas-body">
+    <h6 class="mb-3 border-bottom pb-1">Basic Details</h6>
+    <div class="mb-2 d-flex justify-content-between align-items-center">
+      <span class="text-white">Name</span>
+      <span id="ld_name" class="fw-semibold text-white"></span>
+    </div>
+    <div class="mb-2 d-flex justify-content-between align-items-center">
+      <span class="text-white">Contact</span>
+      <span id="ld_contact" class="text-white"></span>
+    </div>
+    <div class="mb-2 d-flex justify-content-between align-items-center">
+      <span class="text-white">Email</span>
+      <span id="ld_email" class="text-white text-truncate" style="max-width: 60%;"></span>
+    </div>
+    <div class="mb-3">
+      <span id="ld_verified" class="badge bg-danger">Unverified</span>
+      <span id="ld_waste" class="badge bg-secondary">Not a waste</span>
+      <span id="ld_incomplete" class="badge bg-warning text-dark">Not incomplete</span>
+    </div>
+    <hr>
+    <h6>More Details</h6>
+    <div id="ld_more"></div>
+  </div>
+</div>
+{% endblock %}
