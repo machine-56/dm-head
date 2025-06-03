@@ -11,6 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('modalStartDate').value = btn.dataset.start || '';
       document.getElementById('modalEndDate').value = btn.dataset.end || '';
       document.getElementById('modalDescription').value = btn.dataset.description || '';
+      document.getElementById('v_instagram').parentElement.style.display =
+        btn.dataset.instagramShow === '1' ? 'block' : 'none';
+      document.getElementById('v_facebook').parentElement.style.display =
+        btn.dataset.facebookShow === '1' ? 'block' : 'none';
+      document.getElementById('v_twitter').parentElement.style.display =
+        btn.dataset.twitterShow === '1' ? 'block' : 'none';
+          
+      document.getElementById('v_instagram').value = btn.dataset.instagram || '';
+      document.getElementById('v_facebook').value = btn.dataset.facebook || '';
+      document.getElementById('v_twitter').value = btn.dataset.twitter || '';
 
       const fileLink = btn.dataset.file;
       const linkEl = document.getElementById('modalDownloadLink');

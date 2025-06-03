@@ -21,6 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('v_start').value = btn.dataset.start || '';
       document.getElementById('v_end').value = btn.dataset.end || '';
       document.getElementById('v_description').value = btn.dataset.description || '';
+      document.getElementById('v_instagram').parentElement.style.display =
+        btn.dataset.instagramShow === '1' ? 'block' : 'none';
+      document.getElementById('v_facebook').parentElement.style.display =
+        btn.dataset.facebookShow === '1' ? 'block' : 'none';
+      document.getElementById('v_twitter').parentElement.style.display =
+        btn.dataset.twitterShow === '1' ? 'block' : 'none';
+          
+      document.getElementById('v_instagram').value = btn.dataset.instagram || '';
+      document.getElementById('v_facebook').value = btn.dataset.facebook || '';
+      document.getElementById('v_twitter').value = btn.dataset.twitter || '';
 
       const file = btn.dataset.file;
       const box = document.getElementById('v_file_box');
