@@ -69,7 +69,9 @@
             </button>
           </td>
           <td class="table_en_lsm">
-            <button class="btn btn-outline-info btn-sm">Add Report</button>
+<a href="{% url 'add_daily_work_lead' team_alloc_id client.lead_category_id %}" class="btn btn-outline-info btn-sm">
+  Add Report
+</a>
           </td>
         </tr>
         {% empty %}

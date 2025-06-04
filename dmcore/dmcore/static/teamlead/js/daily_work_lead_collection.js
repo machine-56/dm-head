@@ -6,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
       bar.setAttribute('aria-valuenow', value);
     });
 
-    // Attach modal open to "Add" buttons
     document.querySelectorAll('.btn-outline-info.btn-sm').forEach(btn => {
       if (btn.innerText.trim().toLowerCase() === "add") {
         btn.addEventListener('click', () => {

@@ -1,4 +1,3 @@
-console.log('tl new works js')
 document.addEventListener('DOMContentLoaded', () => {
   const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
 
@@ -6,7 +5,11 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       document.getElementById('modalClientName').value = btn.dataset.client || '';
       document.getElementById('modalAssignDate').value = btn.dataset.assign || '';
-      document.getElementById('modalTaskName').value = btn.dataset.name || '';
+      const rawTaskName = btn.dataset.name || '';
+      const taskType = btn.dataset.type || '';
+      const formattedName = taskType === 'lead_collection' ? `Lead Collection : ${rawTaskName}` : rawTaskName;
+      document.getElementById('modalTaskName').value = formattedName;
+
       document.getElementById('modalTarget').value = btn.dataset.target || '';
       document.getElementById('modalStartDate').value = btn.dataset.start || '';
       document.getElementById('modalEndDate').value = btn.dataset.end || '';

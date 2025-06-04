@@ -38,7 +38,13 @@
         {% for task in completed_tasks %}
         <tr>
           <td>{{ forloop.counter }}</td>
-          <td class="table_en_lsm" >{{ task.task_name }}</td>
+          <td class="table_en_lsm" >
+            {% if task.type == 'lead_collection' %}
+              Lead Collection<br><small><li>{{ task.task_name }}</li></small>
+            {% else %}
+              {{ task.task_name }}
+            {% endif %}
+          </td>
           <td class="table_en_lsm" >{{ task.start_date }}</td>
           <td class="table_en_lsm" >{{ task.end_date }}</td>
           <td class="table_en_lsm" >{{ task.accept_date }}</td>
@@ -47,6 +53,7 @@
               data-client="{{ task.client_name }}"
               data-assign="{{ task.assign_date }}"
               data-accept="{{ task.accept_date }}"
+              data-type="{{ task.type }}"
               data-name="{{ task.task_name }}"
               data-target="{{ task.target }}"
               data-achieved="{{ task.achieved }}"

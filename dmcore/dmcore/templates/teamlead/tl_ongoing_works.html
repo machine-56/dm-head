@@ -40,7 +40,13 @@
         {% for work in ongoing_works %}
         <tr>
           <td>{{ forloop.counter }}</td>
-          <td class="table_en_lsm">{{ work.task_name }}</td>
+          <td class="table_en_lsm">
+            {% if work.type == 'lead_collection' %}
+              Lead Collection<br><small><li>{{ work.task_name }}</li></small>
+            {% else %}
+              {{ work.task_name }}
+            {% endif %}
+          </td>
           <td class="table_en_lsm">{{ work.start_date|default:"-" }}</td>
           <td class="table_en_lsm">{{ work.end_date|default:"-" }}</td>
           <td class="table_en_lsm">{{ work.accept_date|default:"-" }}</td>
@@ -49,6 +55,7 @@
               data-client="{{ work.client_name }}"
               data-assign="{{ work.assign_date }}"
               data-accept="{{ work.accept_date }}"
+              data-type="{{ work.type }}"
               data-name="{{ work.task_name }}"
               data-target="{{ work.target }}"
               data-achieved="{{ work.achieved }}"
@@ -66,10 +73,10 @@
           </td>
           <td class="table_en_lsm">
             {% if work.type == 'normal' %}
-              <button class="btn btn-outline-info btn-sm add-daily-btn"
-                data-name="{{ work.task_name }}"
-                data-assignid="{{ work.task_assign_id }}"
-              >Add</button>
+<a href="{% url 'add_daily_work_task' work.task_assign_id %}" class="btn btn-outline-info btn-sm">
+  Add
+</a>
+
             {% elif work.type == 'lead_collection' and work.task_assign_id %}
               <a href="{% url 'tl_daily_work_leads' work.task_assign_id %}" class="btn btn-outline-info btn-sm">
                 Add

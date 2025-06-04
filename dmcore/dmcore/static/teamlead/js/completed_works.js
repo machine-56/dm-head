@@ -3,7 +3,9 @@
       document.getElementById('v_client').value = btn.dataset.client || '';
       document.getElementById('v_allocated').value = btn.dataset.assign || '';
       document.getElementById('v_accepted').value = btn.dataset.accept || '';
-      document.getElementById('v_taskname').value = btn.dataset.name || '';
+      const rawTaskName = btn.dataset.name || '';
+      const taskType = btn.dataset.type || '';
+      document.getElementById('v_taskname').value = taskType === 'lead_collection' ? `Lead Collection : ${rawTaskName}` : rawTaskName;
       document.getElementById('v_target').value = btn.dataset.target || '';
       document.getElementById('v_achieved').value = btn.dataset.achieved || '';
       document.getElementById('v_start').value = btn.dataset.start || '';

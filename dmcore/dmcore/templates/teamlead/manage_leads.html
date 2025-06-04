@@ -66,7 +66,7 @@
       <tbody>
         {% for lead, _ in leads %}
         <tr>
-          <td class="table_en_lsm">{{ lead.added_date|date:"d-M-y" }} | {{ lead.added_time }}</td>
+          <td class="table_en_md">{{ lead.added_date|date:"d-M-y" }} | {{ lead.added_time }}</td>
           <td class="table_en_md">{{ lead.name }}</td>
           <td class="table_en_md">{{ lead.email }}</td>
           <td class="table_en_lsm">{{ lead.contact }}</td>
@@ -101,11 +101,19 @@
         {% csrf_token %}
         <input type="hidden" name="team_alloc_id" value="{{ team_alloc_id }}">
         <div class="modal-body row">
-          <div class="col-md-6 mb-3"><label>Name</label><input class="form-control" name="name" required></div>
-          <div class="col-md-6 mb-3"><label>Email</label><input class="form-control" name="email" required></div>
-          <div class="col-md-6 mb-3"><label>Contact Number</label><input class="form-control" name="contact_number" required></div>
+          <div class="col-md-6 mb-3"><label>Name *</label><input class="form-control" name="name" required></div>
           <div class="col-md-6 mb-3">
-            <label>Lead Source</label>
+             <label>Email *</label>
+            <input class="form-control" name="email" id="lead_email" required>
+            <div id="email_error" class="text-danger small mt-1"></div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Contact Number *</label>
+            <input class="form-control" name="contact_number" id="lead_contact" required>
+            <div id="contact_error" class="text-danger small mt-1"></div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label>Lead Source *</label>
             <select class="form-select" name="lead_source" required>
               <option value="" selected disabled>Choose...</option>
               <option value="Social Media">Social Media</option>
@@ -120,7 +128,7 @@
           </div>
           {% for field in required_fields %}
           <div class="col-md-6 mb-3">
-            <label>{{ field }}</label>
+            <label>{{ field }} *</label>
             <input class="form-control" name="dynamic_{{ field|slugify }}" required>
           </div>
           {% endfor %}
@@ -154,9 +162,9 @@
       <span id="ld_email" class="text-white text-truncate" style="max-width: 60%;"></span>
     </div>
     <div class="mb-3">
-      <span id="ld_verified" class="badge bg-danger">Unverified</span>
-      <span id="ld_waste" class="badge bg-secondary">Not a waste</span>
-      <span id="ld_incomplete" class="badge bg-warning text-dark">Not incomplete</span>
+      <span id="ld_verified" class="text-danger">Unverified</span>
+      <span id="ld_waste" class="text-secondary">Not a waste</span>
+      <span id="ld_incomplete" class="text-success text-dark">Not Marked as incomplete</span>
     </div>
     <hr>
     <h6>More Details</h6>

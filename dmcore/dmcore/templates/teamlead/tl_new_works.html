@@ -39,7 +39,13 @@
         {% for work in new_works %}
         <tr>
           <td>{{ forloop.counter }}</td>
-          <td class="table_en_lsm">{{ work.task_name }}</td>
+          <td class="table_en_lsm">
+            {% if work.type == 'lead_collection' %}
+              Lead Collection<br><small><li>{{ work.task_name }}</li></small>
+            {% else %}
+              {{ work.task_name }}
+            {% endif %}
+          </td>
           <td class="table_en_lsm">{{ work.start_date|default:"-" }}</td>
           <td class="table_en_lsm">{{ work.end_date|default:"-" }}</td>
           <td class="table_en_lsm">{{ work.assign_date|default:"-" }}</td>
@@ -48,6 +54,7 @@
               data-client="{{ work.client_name }}"
               data-assign="{{ work.assign_date }}"
               data-accept="{{ work.accept_date }}"
+              data-type="{{ work.type }}"
               data-name="{{ work.task_name }}"
               data-target="{{ work.target }}"
               data-achieved="{{ work.achieved }}"

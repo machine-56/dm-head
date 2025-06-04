@@ -90,6 +90,11 @@ urlpatterns = [
     path('tl-new-works/', views.tl_new_works, name='tl_new_works'),
     path('tl-ongoing-works/', views.tl_ongoing_works, name='tl_ongoing_works'),
     path('tl-daily-work-leads/<int:team_alloc_id>/', views.tl_daily_work_leads, name='tl_daily_work_leads'),
+    
+    # !new 2
+    path('add-daily-work/task/<int:task_assign_id>/', views.add_daily_work_task, name='add_daily_work_task'),
+    path('add-daily-work/lead/<int:team_alloc_id>/<int:category_id>/', views.add_daily_work_lead, name='add_daily_work_lead'),
+
     path('tl_view_daily_work/<int:task_assign_id>/', views.tl_view_daily_work, name='tl_view_daily_work'),
     path('tl-completed-works/', views.tl_completed_works, name='tl_completed_works'),
     # !new

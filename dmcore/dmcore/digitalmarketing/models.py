@@ -526,6 +526,21 @@ class LeadDetails(models.Model):
     def __str__(self):
         return f"{self.field_name}: {self.field_data}"
 
+class SocialMediaPromotion(models.Model):
+    task_detail = models.ForeignKey(TaskDetails, on_delete=models.CASCADE, null=True, blank=True, related_name='social_promotions')
+    work_assign = models.ForeignKey(WorkAssign, on_delete=models.CASCADE, null=True, blank=True)
+    category_assign = models.ForeignKey(LeadCateogry_TeamAllocate, on_delete=models.SET_NULL, null=True, blank=True)
+    platform = models.CharField(max_length=20)
+    achieved_text = models.TextField()
+    urls = models.TextField()
+    screenshots = models.FileField(upload_to='uploads/social/screenshots/')
+    remarks = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+    def __str__(self):
+        return f"{self.platform.capitalize()} Promotion for TaskDetail {self.task_detail_id}"
+
 
 
 #================================================= end Team leader models ===============================================

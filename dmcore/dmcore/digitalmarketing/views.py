@@ -810,7 +810,6 @@ def assign_to_exec_page(request):
     for assign in work_assigns:
         for task in assign.client_task.all():
             if task.task_name.strip().lower() == "lead collection":
-                # Split each category into its own row
                 categories = LeadCateogry_TeamAllocate.objects.filter(
                     work_assign=assign,
                     lead_category__client_task=task
@@ -850,11 +849,6 @@ def assign_to_exec_page(request):
         'company': company,
         'name': employee
     })
-
-
-
-from django.http import JsonResponse
-from .models import ClientRegister
 
 def check_unique_field(request):
     field = request.GET.get('field')
@@ -1186,8 +1180,6 @@ def add_field(request):
         category_id = request.POST.get('category_id')
         name = request.POST.get('field_name').strip()
         description = request.POST.get('description', '').strip()
-
-        # Get these new values from the POST request
         client_id = request.POST.get('client_id')
         work_id = request.POST.get('work_id')
         print(f'to test category_id {category_id}\nclient {client_id}\nwork_id : {work_id}')
@@ -1196,8 +1188,6 @@ def add_field(request):
 
         if LeadField_Register.objects.filter(lead_category=category, name__iexact=name).exists():
             return JsonResponse({'success': False, 'message': 'Field already exists for this category.'})
-
-        # Fetch client and work instances (optional but recommended to validate existence)
         client = ClientRegister.objects.get(id=client_id)
         work = WorkRegister.objects.get(id=work_id)
 
@@ -1255,7 +1245,6 @@ def submit_work_allocation(request):
             client = work.client
             assign_type = 1 if work_type == 'group' else 0
 
-            # check existing lead collection logic (same work, same task, same type, same TL)
             if task.task_name.strip().lower() == "lead collection":
                 existing = WorkAssign.objects.filter(
                     work_register_id=work_id,
@@ -1350,7 +1339,6 @@ def add_lead_category_to_existing_assignment(request):
                     status=1
                 )
 
-            # Update WorkAssign shared fields
             work_assign.from_date = from_date
             work_assign.due_date = due_date
             work_assign.target = target
@@ -1564,7 +1552,6 @@ def assign_to_executives(request):
 from django.http import JsonResponse, Http404
 
 def get_client(request, client_id):
-    print(f'==================what the f is this : {client_id}================================')
     try:
         client = ClientRegister.objects.get(id=client_id)
         data = {
@@ -1616,7 +1603,6 @@ def get_work(request, work_id):
 def get_task(request, task_id):
     try:
         task = ClientTask_Register.objects.get(id=task_id)
-        # determine if it's a company (common) task
         is_common = Work_Task.objects.filter(task_name=task.task_name, company__isnull=True).exists()
 
         data = {
@@ -1720,11 +1706,8 @@ def get_tasks_for_work(request, work_id):
 # lead categoried in team leader page
 def get_lead_categories_for_task(request, assign_id):
     try:
-        # Get the current assignment and work ID
         assign = WorkAssign.objects.get(id=assign_id)
         work_id = assign.work_register.id
-
-        # Get the ClientTask with the name 'Lead Collection' for this work
         client_task = ClientTask_Register.objects.filter(
             work_id=work_id,
             task_name__iexact="lead collection"
@@ -1733,15 +1716,11 @@ def get_lead_categories_for_task(request, assign_id):
         if not client_task:
             return JsonResponse({'success': False, 'categories': [], 'message': 'No Lead Collection task found for this work.'})
 
-        # All categories for the matched task
         all_categories = LeadCategory_Register.objects.filter(client_task=client_task)
-
-        # Categories already assigned to any TL in this work
         assigned_ids = LeadCateogry_TeamAllocate.objects.filter(
             work_assign_id=assign_id
         ).values_list('lead_category_id', flat=True)
 
-        # Filter out already assigned categories
         available = all_categories.exclude(id__in=assigned_ids)
 
         data = [{'id': cat.id, 'name': cat.collection_for} for cat in available]
@@ -1777,8 +1756,6 @@ def get_lead_categories_for_tl_task(request, assign_id):
         return JsonResponse({'success': True, 'categories': data})
     except:
         return JsonResponse({'success': False, 'categories': []})
-
-# new add 17 may
 
 def get_lead_team_alloc_desc(request, category_id, assign_id):
     try:
@@ -1853,7 +1830,6 @@ def individual_work_main(request):
         'company': company,
         'name': name,
     }
-    print(context)
     return render(request, 'teamlead/individual_work_main.html', context)
 
 def tl_new_works(request):
@@ -1870,17 +1846,15 @@ def tl_new_works(request):
                 task.status = 2
                 task.accept_date = date.today()
                 task.save()
-                print(f"[DEBUG] Accepted WorkAssign {object_id}")  #!========delete this line =============
 
             elif task_type == 'lead_collection':
                 record = LeadCateogry_TeamAllocate.objects.get(id=object_id)
                 record.status = 2
                 record.accept_date = date.today()
                 record.save()
-                print(f"[DEBUG] Accepted LeadCateogry_TeamAllocate {object_id}")  #!========delete this line =============
 
         except Exception as e:
-            print(f"[ERROR] Accept failed: {e}")  #!========delete this line =============
+            print(f"[ERROR] Accept failed: {e}")
             
     all_data = []
 
@@ -1902,8 +1876,6 @@ def tl_new_works(request):
                     'client_name': assign.client.client_name if assign.client else '',
                     'target': assign.target,
                     'file_url': assign.file.url if assign.file else '',
-    
-                    # new fields
                     'is_instagram': int(assign.is_instagram),
                     'instagram_target': assign.instagram_target,
                     'is_facebook': int(assign.is_facebook),
@@ -1932,8 +1904,6 @@ def tl_new_works(request):
             'accept_date': record.accept_date,
             'target': record.target,
             'file_url': record.file.url if record.file else '',
-    
-            # new fields
             'is_instagram': int(assign.is_instagram),
             'instagram_target': assign.instagram_target,
             'is_facebook': int(assign.is_facebook),
@@ -1959,8 +1929,6 @@ def tl_ongoing_works(request):
 
     #? ======================== POST: Save Daily Work Report =======================
     if request.method == 'POST':
-        print("[POST DATA]", request.POST)  #!========delete this line =============
-
         try:
             assign_id = int(request.POST.get('task_assign_id'))
             is_category = request.POST.get('is_category') == 'true'
@@ -1999,19 +1967,16 @@ def tl_ongoing_works(request):
 
             task_detail.save()
             messages.success(request, "Daily report added successfully.")
-            print(f"[DEBUG] Daily work saved for {'CategoryAssign' if is_category else 'WorkAssign'} ID {assign_id}")  #!========delete this line =============
             return redirect('tl_ongoing_works')
 
         except Exception as e:
             messages.error(request, "Failed to submit daily report.")
-            print(f"[ERROR] Failed to save daily work: {e}")  #!========delete this line =============
             return redirect('tl_ongoing_works')
 
     #? ======================== GET: Render Ongoing Works ==========================
     all_data = []
 
     work_assigns = WorkAssign.objects.filter(team_lead=name, status=2).select_related('client')
-    print(f'[DEBUG]=============================TL name : {name}========================================')
     for assign in work_assigns:
         for task in assign.client_task.all():
             if task.task_name.strip().lower() != "lead collection":
@@ -2030,8 +1995,6 @@ def tl_ongoing_works(request):
                     'achieved': assign.target_achieved,
                     'file_url': assign.file.url if assign.file else '',
                     'progress': assign.progress,
-
-                    # new fields
                     'is_instagram': int(assign.is_instagram),
                     'instagram_target': assign.instagram_target,
                     'is_facebook': int(assign.is_facebook),
@@ -2060,8 +2023,6 @@ def tl_ongoing_works(request):
             'achieved': record.target_achieved,
             'file_url': record.file.url if record.file else '',
             'progress': record.progress,
-
-            # new fields
             'is_instagram': int(assign.is_instagram),
             'instagram_target': assign.instagram_target,
             'is_facebook': int(assign.is_facebook),
@@ -2078,7 +2039,6 @@ def tl_ongoing_works(request):
         'today': date.today(),
     }
 
-    print(f"[DEBUG] Ongoing Works Count for TL {name.name}: {len(all_data)}")  #!========delete this line =============
     return render(request, 'teamlead/tl_ongoing_works.html', context)
 
 
@@ -2110,12 +2070,11 @@ def tl_daily_work_leads(request, team_alloc_id):
 
             task_detail.save()
             messages.success(request, "Lead Collection daily work added successfully.")
-            print(f"[DEBUG] Saved daily work for CategoryAssign ID {assign_id}")  #!========delete this line =============
             return redirect('tl_daily_work_leads', team_alloc_id=assign_id)
 
         except Exception as e:
             messages.error(request, "Failed to save daily work.")
-            print(f"[ERROR] Failed to save daily work: {e}")  #!========delete this line =============
+            print(f"[ERROR] Failed to save daily work: {e}")
             return redirect('tl_daily_work_leads', team_alloc_id=team_alloc_id)
 
 
@@ -2153,6 +2112,165 @@ def tl_daily_work_leads(request, team_alloc_id):
 
     return render(request, 'teamlead/tl_lead_daily_table.html', context)
 
+def add_daily_work_task(request, task_assign_id):
+    work = WorkAssign.objects.select_related('client').filter(id=task_assign_id).first()
+    if not work:
+        print(f"[ERROR] No WorkAssign found with ID {task_assign_id}")
+        return redirect('tl_ongoing_works')
+
+    # Get the first client_task (for task name)
+    task_name = ''
+    if work.client_task.exists():
+        task_name = work.client_task.first().task_name
+
+    # Prepare task data dictionary
+    task_data = {
+        'task_name': task_name,
+        'task_description': work.description or '',
+        'start_date': work.from_date,
+        'end_date': work.due_date,
+        'assign_date': work.assign_date,
+        'accept_date': work.accept_date,
+        'client_name': work.client.client_name if work.client else '',
+        'target': work.target,
+        'achieved': work.target_achieved,
+        'file_url': work.file.url if work.file else '',
+        'progress': work.progress,
+    }
+
+    # Determine platforms
+    platforms = []
+    if work.is_instagram:
+        platforms.append('instagram')
+    if work.is_facebook:
+        platforms.append('facebook')
+    if work.is_x:
+        platforms.append('x')
+
+    if request.method == 'POST':
+        try:
+            title = request.POST.get('title', '').strip()
+            description = request.POST.get('description', '').strip()
+            achieved = int(request.POST.get('achieved') or 0)
+            uploaded_file = request.FILES.get('file')
+            target = work.target
+
+            task_detail = TaskDetails(
+                is_category=False,
+                work_assign=work,
+                target=target,
+                achieved_target=achieved,
+                title=title,
+                description=description,
+                status=0
+            )
+
+            if uploaded_file:
+                task_detail.file = uploaded_file
+
+            task_detail.save()
+
+            if platforms:
+                for p in platforms:
+                    if f'{p}_achieved_text' in request.POST:
+                        urls = request.POST.getlist(f'{p}_urls[]')
+                        urls_str = ','.join([u.strip() for u in urls if u.strip()])
+                        SocialMediaPromotion.objects.create(
+                            task_detail=task_detail,
+                            platform=p,
+                            achieved_text=request.POST.get(f'{p}_achieved_text'),
+                            urls=urls_str,
+                            screenshots=request.FILES.get(f'{p}_screenshot'),
+                            remarks=request.POST.get(f'{p}_remarks'),
+                            work_assign=work,
+                            category_assign=None
+                        )
+
+            messages.success(request, "Daily report added successfully.")
+            return redirect('tl_ongoing_works')
+
+        except Exception as e:
+            messages.error(request, "Failed to submit daily report.")
+            print(f"[ERROR] Failed to save daily work: {e}")
+            return redirect('tl_ongoing_works')
+
+    return render(request, 'teamlead/add_daily_work.html', {
+        'mode': 'task',
+        'work': work,
+        'task_data': task_data,
+        'is_platform': bool(platforms),
+        'platforms': platforms,
+        'today': date.today(),
+    })
+
+
+def add_daily_work_lead(request, team_alloc_id, category_id):
+    alloc = LeadCateogry_TeamAllocate.objects.select_related('lead_category').filter(id=team_alloc_id).first()
+    if not alloc or alloc.lead_category.id != category_id:
+        return redirect('tl_ongoing_works')
+
+    work_assign = alloc.work_assign
+    category = alloc.lead_category
+    fields = LeadField_Register.objects.filter(lead_category=category).values_list('name', flat=True)
+
+    platforms = []
+    if work_assign:
+        if work_assign.is_instagram:
+            platforms.append('instagram')
+        if work_assign.is_facebook:
+            platforms.append('facebook')
+        if work_assign.is_x:
+            platforms.append('x')
+
+    if request.method == 'POST':
+        try:
+            title = request.POST.get('title', '').strip()
+            description = request.POST.get('description', '').strip()
+            achieved = int(request.POST.get('achieved') or 0)
+            file = request.FILES.get('file')
+
+            # Save task details
+            task_detail = TaskDetails.objects.create(
+                is_category=True,
+                category_assign=alloc,
+                title=title,
+                description=description,
+                achieved_target=achieved,
+                work_assign_id = alloc.work_assign_id,
+                file=file,
+            )
+
+            if work_assign.is_instagram or work_assign.is_facebook or work_assign.is_x:
+                for p in platforms:
+                    urls = request.POST.getlist(f'{p}_urls[]')
+                    urls_str = ','.join([u.strip() for u in urls if u.strip()])
+                    SocialMediaPromotion.objects.create(
+                        task_detail=task_detail,
+                        platform=p,
+                        achieved_text=request.POST.get(f'{p}_achieved_text', '').strip(),
+                        urls=urls_str,
+                        screenshots=request.FILES.get(f'{p}_screenshot'),
+                        remarks=request.POST.get(f'{p}_remarks', '').strip(),
+                        work_assign=work_assign,
+                        category_assign=alloc
+                    )
+
+            return redirect('tl_ongoing_works')
+
+        except Exception as e:
+            print(f"[ERROR] add_daily_work_lead: {e}")
+            return JsonResponse({'error': 'Something went wrong while saving the data.'}, status=500)
+
+    return render(request, 'teamlead/add_daily_work.html', {
+        'mode': 'lead',
+        'category_assign': alloc,
+        'lead_category': category,
+        'required_fields': fields,
+        'is_platform': bool(platforms),
+        'platforms': platforms,
+        'lead_category_id': category_id,
+        'today': date.today(),
+    })
 
 def tl_view_daily_work(request, task_assign_id):
 
@@ -2231,9 +2349,6 @@ def tl_completed_works(request):
 
     return render(request, 'teamlead/tl_completed_works.html', context)
 
-# ! ========= new addition ==================
-
-
 def manage_leads_page(request, team_alloc_id, lead_category_id):
     custom_fields_qs = LeadField_Register.objects.filter(lead_category_id=lead_category_id)
     field_names = list(custom_fields_qs.values_list('name', flat=True))
@@ -2258,36 +2373,36 @@ def add_lead_manual(request):
     if request.method == 'POST':
         try:
             team_alloc_id = request.POST.get('team_alloc_id')
-
-            # Get the allocation object
             category_alloc = LeadCateogry_TeamAllocate.objects.filter(id=team_alloc_id).first()
             if not category_alloc:
-                return JsonResponse({'error': 'Invalid category allocation'}, status=400)
+                messages.error(request, "Invalid allocation ID.")
+                return JsonResponse({'success': False})
 
-            # Get lead_category FK
             lead_category_fk = category_alloc.lead_category
-            print(f'testing: ============= {lead_category_fk}')
-
-            # Get LeadField_Register to fetch both work and field names
             field_register = LeadField_Register.objects.filter(lead_category_id=lead_category_fk).first()
             work_fk = field_register.work if field_register else None
 
-            # Get logged-in employee instance
             log_user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
             employee_fk = EmployeeRegister_Details.objects.filter(login=log_user).first()
 
-            # Create lead
+            email = request.POST.get('email', '').strip().lower()
+            contact = request.POST.get('contact_number', '').strip()
+
+            # Duplicate check
+            if Leads.objects.filter(email=email).exists() or Leads.objects.filter(contact=contact).exists():
+                messages.error(request, "Duplicate email or contact already exists.")
+                return JsonResponse({'success': False})
+
             lead = Leads.objects.create(
                 name=request.POST.get('name'),
-                email=request.POST.get('email'),
-                contact=request.POST.get('contact_number'),
+                email=email,
+                contact=contact,
                 source=request.POST.get('lead_source'),
                 lead_category=lead_category_fk,
                 work=work_fk,
                 collected_by=employee_fk
             )
 
-            # Save dynamic fields
             for key, value in request.POST.items():
                 if key.startswith('dynamic_'):
                     field_name = key.replace('dynamic_', '').replace('_', ' ').title()
@@ -2297,13 +2412,15 @@ def add_lead_manual(request):
                         field_data=value
                     )
 
+            messages.success(request, "Lead added successfully.")
             return JsonResponse({'success': True})
 
         except Exception as e:
             print(f"[ERROR] Failed to save lead manually: {e}")
-            return JsonResponse({'error': 'Something went wrong'}, status=500)
+            messages.error(request, "Something went wrong while adding the lead.")
+            return JsonResponse({'success': False})
 
-    return JsonResponse({'error': 'Invalid Request'}, status=400)
+    return JsonResponse({'success': False})
 
 
 def upload_leads_excel(request):
@@ -2351,7 +2468,13 @@ def download_leads_excel(request, lead_category_id, team_alloc_id):
 
     df = pd.DataFrame(data)
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename=leads_team_{team_alloc_id}.xlsx'
+
+    assign = LeadCateogry_TeamAllocate.objects.filter(id=team_alloc_id).select_related('work_assign__client').first()
+    client_name = assign.work_assign.client.client_name.replace(' ', '_') if assign and assign.work_assign.client else 'Client'
+    assign_id = assign.work_assign.id if assign and assign.work_assign else team_alloc_id
+    filename = f"{client_name}_{assign_id}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename={filename}'
+
     df.to_excel(response, index=False)
     return response
 
@@ -2401,7 +2524,7 @@ def upload_leads_excel(request):
 
     for i, row in df.iterrows():
         data = row.to_dict()
-        row_index = i + 2  # Excel row number for logging
+        row_index = i + 2 
 
         name = str(data.get('Name')).strip()
         email = str(data.get('Email')).strip().lower()
@@ -2450,7 +2573,7 @@ def upload_leads_excel(request):
 
     if skipped:
         messages.warning(request, f"{len(skipped)} row(s) skipped during upload.")
-        for reason in skipped[:5]:  # Limit display to first 5 reasons
+        for reason in skipped[:5]:
             messages.warning(request, reason)
         if len(skipped) > 5:
             messages.warning(request, f"...and {len(skipped) - 5} more.")
@@ -2463,16 +2586,11 @@ def upload_leads_excel(request):
 
     return redirect('manage_leads_page', team_alloc_id=team_alloc_id, lead_category_id=lead_category.id)
 
-
-# ! ========= /new addition ==================
-
 # fetch data from db
 @csrf_exempt
 def tl_get_data_workassign(request):
     tl_id = request.GET.get('id')
     status = request.GET.get('status')
-
-    print(f"[DEBUG] WorkAssign fetch for TL: {tl_id} with status: {status}")  #!========delete this line =============
 
     try:
         data = []
@@ -2496,7 +2614,7 @@ def tl_get_data_workassign(request):
                     })
         return JsonResponse({'success': True, 'data': data})
     except Exception as e:
-        print(f"[ERROR] tl_get_data_workassign failed: {e}")  #!========delete this line =============
+        print(f"[ERROR] tl_get_data_workassign failed: {e}")
         return JsonResponse({'success': False, 'message': str(e)})
     
 
@@ -2504,8 +2622,6 @@ def tl_get_data_workassign(request):
 def tl_get_data_leadcateogry_teamallocate(request):
     tl_id = request.GET.get('id')
     status = request.GET.get('status')
-
-    print(f"[DEBUG] LeadCateogry_TeamAllocate fetch for TL: {tl_id} with status: {status}")  #!========delete this line =============
 
     try:
         data = []
@@ -2529,10 +2645,9 @@ def tl_get_data_leadcateogry_teamallocate(request):
             })
         return JsonResponse({'success': True, 'data': data})
     except Exception as e:
-        print(f"[ERROR] tl_get_data_leadcateogry_teamallocate failed: {e}")  #!========delete this line =============
+        print(f"[ERROR] tl_get_data_leadcateogry_teamallocate failed: {e}")
         return JsonResponse({'success': False, 'message': str(e)})
 
-#  ! =========== new addition =================
 def get_lead_details(request, lead_id):
     try:
         lead = Leads.objects.get(id=lead_id)

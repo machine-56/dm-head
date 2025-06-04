@@ -1,7 +1,5 @@
-console.log('js loaded');  // !========delete this line =============
-
 document.addEventListener('DOMContentLoaded', () => {
-  // Set progress bar widths
+
   document.querySelectorAll('.progress-bar').forEach(bar => {
     const value = parseInt(bar.dataset.progress || '0');
     bar.style.width = `${value}%`;
@@ -9,13 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     bar.setAttribute('aria-valuenow', value);
   });
 
-  // View modal logic
   document.querySelectorAll('.view-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('v_client').value = btn.dataset.client || '';
       document.getElementById('v_allocated').value = btn.dataset.assign || '';
       document.getElementById('v_accepted').value = btn.dataset.accept || '';
-      document.getElementById('v_taskname').value = btn.dataset.name || '';
+      const rawTaskName = btn.dataset.name || '';
+      const taskType = btn.dataset.type || '';
+      document.getElementById('v_taskname').value = taskType === 'lead_collection' ? `Lead Collection : ${rawTaskName}` : rawTaskName;
       document.getElementById('v_target').value = btn.dataset.target || '';
       document.getElementById('v_achieved').value = btn.dataset.achieved || '';
       document.getElementById('v_start').value = btn.dataset.start || '';
@@ -46,15 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Add Daily Work Modal (only for normal tasks)
+  // Add Daily Work Modal
   document.querySelectorAll('.add-daily-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const taskName = btn.dataset.name || '';
       const assignId = btn.dataset.assignid || '';
 
       document.getElementById('d_taskname').value = taskName;
-
-      // Optional: store assign ID in hidden input
       const hidden = document.getElementById('task_assign_id');
       if (hidden) hidden.value = assignId;
 
