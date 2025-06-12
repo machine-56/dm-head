@@ -1,8 +1,12 @@
+import json
 import re
 import pandas as pd
 from django.http import HttpResponse, JsonResponse
 from django.core.files.storage import default_storage
-from datetime import date                                 #!===================== new import
+from datetime import date
+from collections import defaultdict                              #!===================== new import
+from django.utils import timezone                                #!===================== new import
+from openpyxl import Workbook                                    #!===================== new import
 
 from django.shortcuts import render,redirect
 from django.contrib import messages
@@ -146,7 +150,6 @@ def dmhead(request):
     try:
         user = LogRegister_Details.objects.get(log_username=hid)
         company = BusinessRegister_Details.objects.filter(login=user).first()
-        print(f'testing =========================[DEBUGGING] from dmhead : {company}')
 
         print("dashboard",company)
         name=EmployeeRegister_Details.objects.filter(login=user).first()
@@ -1805,6 +1808,363 @@ def get_full_workassign(request, assign_id):
 
 # ======================================================== DM head ================================================================
 
+# !======================================================== DM head new ================================================================
+
+def dmhead_leads_page(request):
+    all_allocs = LeadCateogry_TeamAllocate.objects.select_related(
+        'lead_category', 'work_assign__client'
+    ).order_by('work_assign__client__client_name', '-from_date')
+
+    grouped = defaultdict(list)
+    for alloc in all_allocs:
+        client = alloc.work_assign.client
+        grouped[client.id].append({
+            'start_date': alloc.from_date,
+            'end_date': alloc.due_date,
+            'category_name': alloc.lead_category.collection_for,
+            'lead_category_id': alloc.lead_category.id,
+            'fields': LeadField_Register.objects.filter(lead_category_id=alloc.lead_category.id),
+            'team_alloc_id': alloc.id
+        })
+
+    structured = []
+    for idx, (client_id, records) in enumerate(grouped.items(), start=1):
+        client_name = ClientRegister.objects.get(id=client_id).client_name
+        structured.append({
+            'no': idx,
+            'client_id': client_id,
+            'client_name': client_name,
+            'records': records
+        })
+
+    return render(request, 'dmhead/leads.html', {
+        'grouped_clients': structured
+    })
+
+
+def verify_leads_page(request, team_alloc_id, lead_category_id):
+    required_fields = LeadField_Register.objects.filter(lead_category_id=lead_category_id)
+    field_names = list(required_fields.values_list('name', flat=True))
+
+    allocation = LeadCateogry_TeamAllocate.objects.select_related('work_assign__client').filter(id=team_alloc_id).first()
+    client_name = allocation.work_assign.client.client_name if allocation and allocation.work_assign and allocation.work_assign.client else "Unknown Client"
+
+    leads_qs = Leads.objects.filter(
+        lead_category_id=lead_category_id
+    ).select_related('collected_by')
+
+    employees = EmployeeRegister_Details.objects.filter(
+        id__in=leads_qs.values_list('collected_by_id', flat=True),
+        designation_id__in=[1, 3, 5]
+    ).order_by('name')
+
+    enriched_leads = []
+    for lead in leads_qs:
+
+        from_date = None
+        due_date = None
+        alloc = LeadCateogry_TeamAllocate.objects.filter(lead_category_id=lead.lead_category_id).first()
+        if alloc:
+            from_date = alloc.from_date
+            due_date = alloc.due_date
+
+        dynamic = LeadDetails.objects.filter(lead=lead)
+        field_data = {d.field_name: d.field_data for d in dynamic}
+        enriched_leads.append((lead, field_data, from_date, due_date))
+
+
+    today = timezone.now().date()
+    today_leads = Leads.objects.filter(added_date=today)
+    
+    day_report = {
+        'total': today_leads.count(),
+        'unverified': today_leads.filter(status=0).count(),
+        'repeated': today_leads.filter(repeated_status=1).count(),
+        'waste': today_leads.filter(waste_data=1).count(),
+        'clean_unverified': today_leads.filter(status=0, repeated_status=0, waste_data=0).count(),
+        'verified': today_leads.filter(status=1).count(),
+        'transferred': today_leads.filter(transfer_status=1).count(),
+        'pending_transfer': today_leads.filter(status=1, transfer_status=0).count(),
+    }
+
+    return render(request, 'dmhead/verify_leads.html', {
+        'team_alloc_id': team_alloc_id,
+        'lead_category_id': lead_category_id,
+        'required_fields': field_names,
+        'leads': enriched_leads,
+        'employees': employees,
+        'day_report': day_report,
+        'client_name': client_name,
+    })
+
+
+
+def head_lead_transfer_page(request):
+    leads = Leads.objects.filter(status=1, transfer_status=0).select_related('collected_by', 'lead_category', 'work__client')
+    employees = EmployeeRegister_Details.objects.all()
+    clients = ClientRegister.objects.all()
+    categories = LeadCategory_Register.objects.all()
+
+    success_message = request.session.pop('transfer_success', None)
+    if success_message:
+        messages.success(request, success_message)
+
+    return render(request, 'dmhead/transfer_leads.html', {
+        'leads': leads,
+        'employees': employees,
+        'clients': clients,
+        'categories': categories,
+    })
+
+
+def transferred_leads_page(request):
+    leads = Leads.objects.filter(transfer_status=1).select_related('collected_by', 'lead_category', 'work__client')
+    clients = ClientRegister.objects.all()
+    categories = LeadCategory_Register.objects.all()
+    employees = EmployeeRegister_Details.objects.all()
+
+    return render(request, 'dmhead/transferred_leads.html', {
+        'leads': leads,
+        'clients': clients,
+        'categories': categories,
+        'employees': employees
+    })
+
+
+
+# * helper modules
+
+def upload_leads_excel_dmhead(request):
+    if request.method != 'POST':
+        messages.error(request, "Invalid request.")
+        return redirect('individual_work_main')
+
+    login_user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
+    employee_user = EmployeeRegister_Details.objects.get(login=login_user)
+    team_alloc_id = request.POST.get('team_alloc_id')
+
+    result = process_excel_upload(request, team_alloc_id, employee_user)
+
+    if 'error' in result:
+        messages.error(request, result['error'])
+    else:
+        if result['skipped']:
+            messages.warning(request, f"{len(result['skipped'])} row(s) skipped.")
+            for msg in result['skipped'][:5]:
+                messages.warning(request, msg)
+            if len(result['skipped']) > 5:
+                messages.warning(request, f"...and {len(result['skipped']) - 5} more.")
+
+        if result['created_count'] > 0:
+            messages.success(request, f"{result['created_count']} lead(s) uploaded.")
+        elif not result['skipped']:
+            messages.error(request, "No valid data found.")
+
+
+    return redirect('verify_leads_page', team_alloc_id=team_alloc_id, lead_category_id=result.get('lead_category_id', 0))
+
+
+# ? js calls
+
+@csrf_exempt
+def change_lead_status(request):
+    print("📥 Received request to change status")
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            lead_ids = body.get("leads", [])
+            status = body.get("status")
+
+            print("Lead IDs:", lead_ids)
+            print("Status type:", status)
+
+            if not lead_ids or not status:
+                print("Missing lead IDs or status.")
+                return JsonResponse({"success": False, "message": "Missing required data."})
+
+            from .models import Leads  # Adjust if necessary
+
+            update_fields = {}
+
+            if status == "unverified":
+                update_fields["status"] = 0
+            elif status == "verified":
+                update_fields["status"] = 1
+            elif status == "waste":
+                update_fields["waste_data"] = 1
+            elif status == "not_waste":
+                update_fields["waste_data"] = 0
+            elif status == "incomplete":
+                update_fields["incomplete_status"] = 1
+            elif status == "not_incomplete":
+                update_fields["incomplete_status"] = 0
+            elif status == "repeated":
+                update_fields["repeated_status"] = 1
+            else:
+                print("Invalid status type:", status)
+                return JsonResponse({"success": False, "message": "Invalid status."})
+
+            Leads.objects.filter(id__in=lead_ids).update(**update_fields)
+            print("Status updated for leads:", lead_ids)
+
+            return JsonResponse({"success": True})
+
+        except Exception as e:
+            print("Exception:", e)
+            return JsonResponse({"success": False, "message": "Server error."})
+
+    return JsonResponse({"success": False, "message": "Invalid request method."})
+
+
+def download_lead_excel_format(request, lead_category_id):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Lead Format"
+    
+    headers = ['Name', 'Email', 'Contact Number', 'Lead Source']
+    additional_fields = LeadField_Register.objects.filter(
+        lead_category_id=lead_category_id
+    ).values_list('name', flat=True)
+    headers.extend(additional_fields)
+
+    for idx, header in enumerate(headers, start=1):
+        sheet.cell(row=1, column=idx, value=header)
+
+    category = LeadCategory_Register.objects.filter(id=lead_category_id).first()
+    client_name = category.client_task.client.client_name.replace(" ", "_") if category and category.client_task and category.client_task.client else "Client"
+    category_id = category.id if category else "Unknown"
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = f"{client_name}_{category_id}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    workbook.save(response)
+    return response
+
+@csrf_exempt
+def transfer_selected_leads(request):
+    if request.method == "POST":
+        try:
+            body = json.loads(request.body)
+            lead_ids = body.get("leads", [])
+            if not lead_ids:
+                return JsonResponse({"success": False, "message": "No leads provided."})
+
+            Leads.objects.filter(id__in=lead_ids, status=1).update(transfer_status=1, transfer_date=date.today())
+
+            for lead_id in lead_ids:
+                lead = Leads.objects.filter(id=lead_id, status=1).first()
+                if lead and not DataBank.objects.filter(lead=lead).exists():
+                    DataBank.objects.create(lead=lead)
+
+            # Add the message
+            request.session['transfer_success'] = f"{len(lead_ids)} lead(s) successfully transferred."
+
+            return JsonResponse({"success": True})
+
+        except Exception as e:
+            return JsonResponse({"success": False, "message": str(e)})
+
+    return JsonResponse({"success": False, "message": "Invalid request"})
+
+
+
+# !======================================================== end DM head new ================================================================
+# !========================================================  common new ================================================================
+
+def process_excel_upload(request, team_alloc_id, employee_user):
+    excel = request.FILES.get('excel_file')
+    category_alloc = LeadCateogry_TeamAllocate.objects.filter(id=team_alloc_id).first()
+
+    if not category_alloc:
+        return {'error': "Invalid team allocation."}
+
+    lead_category = category_alloc.lead_category
+    work_fk = LeadField_Register.objects.filter(lead_category=lead_category).first().work if lead_category else None
+
+    required_static = ['Name', 'Email', 'Contact Number', 'Lead Source']
+    required_dynamic = list(LeadField_Register.objects.filter(lead_category=lead_category).values_list('name', flat=True))
+    expected_columns = required_static + required_dynamic
+
+    try:
+        df = pd.read_excel(excel)
+    except Exception:
+        return {'error': "Invalid Excel file format."}
+
+    actual_headers = list(df.columns)
+    unknown_headers = [h for h in actual_headers if h not in expected_columns]
+    missing_headers = [h for h in expected_columns if h not in actual_headers]
+
+    if missing_headers:
+        return {'error': f"Missing required columns: {', '.join(missing_headers)}."}
+    if unknown_headers:
+        return {'error': f"Unrecognized columns: {', '.join(unknown_headers)}."}
+
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    phone_pattern = r'^\d{10}$'
+
+    skipped = []
+    created_count = 0
+
+    for i, row in df.iterrows():
+        data = row.to_dict()
+        row_index = i + 2
+
+        name = str(data.get('Name')).strip()
+        email = str(data.get('Email')).strip().lower()
+        raw_contact = data.get('Contact Number')
+        contact = re.sub(r'\D', '', str(int(raw_contact))) if pd.notna(raw_contact) and str(raw_contact).strip() != '' else ''
+        source = str(data.get('Lead Source')).strip()
+
+        if not name or not email or not contact or not source:
+            skipped.append(f"Row {row_index}: missing required static fields.")
+            continue
+
+        missing_dynamic = [field for field in required_dynamic if not str(data.get(field)).strip()]
+        if missing_dynamic:
+            skipped.append(f"Row {row_index}: missing dynamic field(s): {', '.join(missing_dynamic)}.")
+            continue
+
+        if not re.match(email_pattern, email):
+            skipped.append(f"Row {row_index}: invalid email format.")
+            continue
+
+        if not re.match(phone_pattern, contact):
+            skipped.append(f"Row {row_index}: invalid contact number.")
+            continue
+
+        if Leads.objects.filter(email=email).exists() or Leads.objects.filter(contact=contact).exists():
+            skipped.append(f"Row {row_index}: duplicate email or contact.")
+            continue
+
+        lead = Leads.objects.create(
+            name=name,
+            email=email,
+            contact=contact,
+            source=source,
+            lead_category=lead_category,
+            work=work_fk,
+            collected_by_id=employee_user.id
+        )
+
+        for field in required_dynamic:
+            LeadDetails.objects.create(
+                lead=lead,
+                field_name=field,
+                field_data=str(data.get(field)).strip()
+            )
+
+        created_count += 1
+
+    return {
+        'success': True,
+        'created_count': created_count,
+        'skipped': skipped,
+        'lead_category_id': lead_category.id,
+    }
+
+# !======================================================== end common new ================================================================
+
 
 # ======================================================== teamlead ================================================================
 def teamlead_work(request):
@@ -2358,7 +2718,7 @@ def manage_leads_page(request, team_alloc_id, lead_category_id):
     for lead in leads_qs:
         extra_fields = LeadDetails.objects.filter(lead=lead)
         field_map = {e.field_name: e.field_data for e in extra_fields}
-        enriched_leads.append((lead, field_map))  # <-- Keep full dictionary for modal access
+        enriched_leads.append((lead, field_map))
 
     return render(request, 'teamlead/manage_leads.html', {
         'team_alloc_id': team_alloc_id,
@@ -2366,8 +2726,6 @@ def manage_leads_page(request, team_alloc_id, lead_category_id):
         'required_fields': field_names,
         'leads': enriched_leads,
     })
-
-
 
 def add_lead_manual(request):
     if request.method == 'POST':
@@ -2422,30 +2780,6 @@ def add_lead_manual(request):
 
     return JsonResponse({'success': False})
 
-
-def upload_leads_excel(request):
-    if request.method == 'POST':
-        excel = request.FILES.get('excel_file')
-        team_alloc_id = request.POST.get('team_alloc_id')
-        df = pd.read_excel(excel)
-
-        required_static = ['Name', 'Email', 'Contact Number', 'Lead Source']
-        for _, row in df.iterrows():
-            data = row.to_dict()
-            lead = Leads.objects.create(
-                name=data.get('Name'),
-                email=data.get('Email'),
-                contact_number=data.get('Contact Number'),
-                lead_source=data.get('Lead Source'),
-                team_alloc_id=team_alloc_id
-            )
-            for key, value in data.items():
-                if key not in required_static:
-                    LeadDetails.objects.create(lead=lead, field_name=key, field_value=value)
-        messages.success(request, "Leads uploaded successfully.")
-        return redirect('manage_leads_page', team_alloc_id=team_alloc_id)
-
-
 def download_leads_excel(request, lead_category_id, team_alloc_id):
     leads = Leads.objects.filter(lead_category_id=lead_category_id)
 
@@ -2483,108 +2817,29 @@ def upload_leads_excel(request):
         messages.error(request, "Invalid request.")
         return redirect('individual_work_main')
 
-    excel = request.FILES.get('excel_file')
+    login_user = LogRegister_Details.objects.get(log_username=request.session.get('tid'))
+    employee_user = EmployeeRegister_Details.objects.get(login=login_user)
     team_alloc_id = request.POST.get('team_alloc_id')
-    category_alloc = LeadCateogry_TeamAllocate.objects.filter(id=team_alloc_id).first()
 
-    if not category_alloc:
-        messages.error(request, "Invalid team allocation.")
-        return redirect('individual_work_main')
+    result = process_excel_upload(request, team_alloc_id, employee_user)
 
-    lead_category = category_alloc.lead_category
-    work_fk = LeadField_Register.objects.filter(lead_category=lead_category).first().work if lead_category else None
+    if 'error' in result:
+        messages.error(request, result['error'])
+    else:
+        if result['skipped']:
+            messages.warning(request, f"{len(result['skipped'])} row(s) skipped.")
+            for msg in result['skipped'][:5]:
+                messages.warning(request, msg)
+            if len(result['skipped']) > 5:
+                messages.warning(request, f"...and {len(result['skipped']) - 5} more.")
 
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    phone_pattern = r'^\d{10}$'
+        if result['created_count'] > 0:
+            messages.success(request, f"{result['created_count']} lead(s) uploaded.")
+        elif not result['skipped']:
+            messages.error(request, "No valid data found.")
 
-    required_static = ['Name', 'Email', 'Contact Number', 'Lead Source']
-    required_dynamic = list(LeadField_Register.objects.filter(lead_category=lead_category).values_list('name', flat=True))
-    expected_columns = required_static + required_dynamic
 
-    try:
-        df = pd.read_excel(excel)
-    except Exception:
-        messages.error(request, "Invalid Excel file format.")
-        return redirect('manage_leads_page', team_alloc_id=team_alloc_id, lead_category_id=lead_category.id)
-
-    actual_headers = list(df.columns)
-    unknown_headers = [h for h in actual_headers if h not in expected_columns]
-    missing_headers = [h for h in expected_columns if h not in actual_headers]
-
-    if missing_headers:
-        messages.error(request, f"Missing required columns: {', '.join(missing_headers)}.")
-        return redirect('manage_leads_page', team_alloc_id=team_alloc_id, lead_category_id=lead_category.id)
-
-    if unknown_headers:
-        messages.error(request, f"Unrecognized columns: {', '.join(unknown_headers)}.")
-        return redirect('manage_leads_page', team_alloc_id=team_alloc_id, lead_category_id=lead_category.id)
-
-    skipped = []
-    created_count = 0
-
-    for i, row in df.iterrows():
-        data = row.to_dict()
-        row_index = i + 2 
-
-        name = str(data.get('Name')).strip()
-        email = str(data.get('Email')).strip().lower()
-        raw_contact = data.get('Contact Number')
-        contact = re.sub(r'\D', '', str(int(raw_contact))) if pd.notna(raw_contact) and str(raw_contact).strip() != '' else ''
-        source = str(data.get('Lead Source')).strip()
-
-        if not name or not email or not contact or not source:
-            skipped.append(f"Row {row_index}: missing required static fields.")
-            continue
-
-        missing_dynamic = [field for field in required_dynamic if not str(data.get(field)).strip()]
-        if missing_dynamic:
-            skipped.append(f"Row {row_index}: missing dynamic field(s): {', '.join(missing_dynamic)}.")
-            continue
-
-        if not re.match(email_pattern, email):
-            skipped.append(f"Row {row_index}: invalid email format.")
-            continue
-
-        if not re.match(phone_pattern, contact):
-            skipped.append(f"Row {row_index}: invalid contact number.")
-            continue
-
-        if Leads.objects.filter(email=email).exists() or Leads.objects.filter(contact=contact).exists():
-            skipped.append(f"Row {row_index}: duplicate email or contact.")
-            continue
-
-        lead = Leads.objects.create(
-            name=name,
-            email=email,
-            contact=contact,
-            source=source,
-            lead_category=lead_category,
-            work=work_fk
-        )
-
-        for field in required_dynamic:
-            LeadDetails.objects.create(
-                lead=lead,
-                field_name=field,
-                field_data=str(data.get(field)).strip()
-            )
-
-        created_count += 1
-
-    if skipped:
-        messages.warning(request, f"{len(skipped)} row(s) skipped during upload.")
-        for reason in skipped[:5]:
-            messages.warning(request, reason)
-        if len(skipped) > 5:
-            messages.warning(request, f"...and {len(skipped) - 5} more.")
-
-    if created_count > 0:
-        messages.success(request, f"{created_count} lead(s) uploaded successfully.")
-
-    if created_count == 0 and not skipped:
-        messages.error(request, "No valid data found in uploaded file.")
-
-    return redirect('manage_leads_page', team_alloc_id=team_alloc_id, lead_category_id=lead_category.id)
+    return redirect('manage_leads_page', team_alloc_id=team_alloc_id, lead_category_id=result.get('lead_category_id', 0))
 
 # fetch data from db
 @csrf_exempt
@@ -2674,3 +2929,4 @@ def get_lead_details(request, lead_id):
     except Leads.DoesNotExist:
         return JsonResponse({"success": False, "message": "Lead not found."}, status=404)
 # ======================================================== teamlead ================================================================
+

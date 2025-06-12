@@ -82,6 +82,17 @@ urlpatterns = [
     path('get-workassign-desc/<int:assign_id>/', views.get_workassign_desc, name='get_workassign_desc'),
     path('get-full-workassign/<int:assign_id>/', views.get_full_workassign, name='get_full_workassign'),
 
+    # !====================== new 05 june ==================
+    path('dmhead/leads/', views.dmhead_leads_page, name='dmhead_leads_page'),
+    path('verify-leads/<int:team_alloc_id>/<int:lead_category_id>/', views.verify_leads_page, name='verify_leads_page'),
+    path('transfer-leads/', views.head_lead_transfer_page, name='head_lead_transfer_page'),
+    path('transferred-leads/', views.transferred_leads_page, name='transferred_leads_page'),
+
+    path('upload-leads-dmhead/', views.upload_leads_excel_dmhead, name='upload_leads_excel_dmhead'),
+    path("change-lead-status/", views.change_lead_status, name="change_lead_status"),
+    path('download-excel-format/<int:lead_category_id>/', views.download_lead_excel_format, name='download_lead_excel_format'),
+    path('transfer-selected-leads/', views.transfer_selected_leads, name='transfer_selected_leads'),
+
     # ===================================================== end DM head =====================================================
     
     # ===================================================== teamlead =====================================================
@@ -90,14 +101,11 @@ urlpatterns = [
     path('tl-new-works/', views.tl_new_works, name='tl_new_works'),
     path('tl-ongoing-works/', views.tl_ongoing_works, name='tl_ongoing_works'),
     path('tl-daily-work-leads/<int:team_alloc_id>/', views.tl_daily_work_leads, name='tl_daily_work_leads'),
-    
-    # !new 2
     path('add-daily-work/task/<int:task_assign_id>/', views.add_daily_work_task, name='add_daily_work_task'),
     path('add-daily-work/lead/<int:team_alloc_id>/<int:category_id>/', views.add_daily_work_lead, name='add_daily_work_lead'),
 
     path('tl_view_daily_work/<int:task_assign_id>/', views.tl_view_daily_work, name='tl_view_daily_work'),
     path('tl-completed-works/', views.tl_completed_works, name='tl_completed_works'),
-    # !new
     path('manage-leads/<int:team_alloc_id>/<int:lead_category_id>/', views.manage_leads_page, name='manage_leads_page'),
     path('add-lead/', views.add_lead_manual, name='add_lead_manual'),
     path('upload-leads/', views.upload_leads_excel, name='upload_leads_excel'),

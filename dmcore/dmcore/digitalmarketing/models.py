@@ -470,9 +470,6 @@ class LeadCategory_Assign(models.Model):
     def __str__(self):
         return f"{self.executive} - {self.team_allocation}"
 
-
-
-
 #================================================= end DM Head models ===============================================
 
 #================================================= team Leader models ===============================================
@@ -545,6 +542,39 @@ class SocialMediaPromotion(models.Model):
 
 #================================================= end Team leader models ===============================================
 
+#=================================================  DM Head models ===============================================
+# new
+class DataBank(models.Model):
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
+    generated_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    used_count = models.IntegerField(default=0)
+    lead_allocate_status = models.IntegerField(default=0)
+    current_status = models.CharField(max_length=150, default='No update')
+    allocated_date = models.DateField(null=True, blank=True)
+    followup_date = models.DateField(null=True, blank=True)
+    lead_status = models.CharField(max_length=150, default='Not Attended')
 
+    def _str_(self):
+        return f"{self.lead} - {self.lead_status}"
+    
+class Platforms(models.Model):
+    company = models.ForeignKey(BusinessRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    created_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    platform_name = models.CharField(max_length=150, default='')
+    platform_total_count = models.IntegerField(default=0)
+
+    def _str_(self):
+        return f"{self.platform_name} ({self.platform_total_count})"
+    
+class PlatformData(models.Model):
+    company = models.ForeignKey(BusinessRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    data_add_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    platform_name = models.CharField(max_length=150, default='')
+    platform_data_count = models.IntegerField(default=0)
+
+    def _str_(self):
+        return f"{self.platform_name} - {self.platform_data_count}"
+
+#================================================= end DM Head models ===============================================
     
 

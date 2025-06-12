@@ -39,3 +39,8 @@ input:read-only {
   border-radius: 8px;
   padding: 2rem 1.5rem;
 }
+
+
+.dataTables_wrapper .dataTables_info {
+  color: #f0f0f0 !important;
+}
