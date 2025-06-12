@@ -35,16 +35,17 @@
       </h5>
     </div>
     <div class="d-flex flex-wrap gap-2">
-      <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#dayReportModal">Day Report</button>
-      <button class="btn btn-outline-danger btn-sm" id="pdfBtn">PDF</button>
-      <button class="btn btn-outline-info btn-sm">Share</button>
+      <button class="btn btn-dark btn-sm" data-bs-toggle="modal" data-bs-target="#dayReportModal">Day Report</button>
+      <button class="btn btn-outline-light btn-sm" id="printBtn"><i class="fas fa-print"></i></button>
+      <button class="btn btn-outline-danger btn-sm" id="pdfBtn"><i class="fa-solid fa-file-pdf"></i></button>
+      <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#shareModal"><i class="fa-solid fa-share"></i></button>
     </div>
   </div>
 
-  <div class="lead-page-toolbar mb-2" print-hide>
+  <div class="lead-page-toolbar mb-2 print-hide" >
     <div class="d-flex flex-wrap align-items-center gap-2">
       <a href="{% url 'download_lead_excel_format' lead_category_id=lead_category_id %}" class="btn btn-outline-info btn-sm" id="excelBtn">
-        <i class="fas fa-file-download"></i> Format
+        <i class="fas fa-file-download"></i> Download Data Form
       </a>
 
 
@@ -54,6 +55,7 @@
 
       <div class="d-flex align-items-center gap-2">
         <select id="statusAction" class="form-select form-select-sm">
+          <option disabled selected>Choose Action</option>
           <option value="unverified">Unverified</option>
           <option value="verified">Verified</option>
           <option value="waste">Wasted</option>
@@ -279,7 +281,40 @@
   </div>
 </div>
 
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title">Share Lead Report</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">Share via:</p>
+        <div class="d-flex gap-2 mb-4">
+          <button class="btn btn-outline-success btn-sm" id="shareViaWhatsApp">WhatsApp</button>
+          <button class="btn btn-outline-primary btn-sm" id="shareViaEmail">Email</button>
+        </div>
 
+        <!-- Email Section (initially hidden) -->
+        <div id="emailSection" style="display: none;">
+          <div class="mb-3">
+            <label for="emailInput">Email Address(es)</label>
+            <input type="text" class="form-control form-control-sm" id="emailInput"
+              placeholder="Enter email ID(s) separated by commas">
+          </div>
+          <div class="mb-3">
+            <label for="emailMessage">Message (optional)</label>
+            <textarea class="form-control form-control-sm" rows="3" id="emailMessage"></textarea>
+          </div>
+          <div class="text-end">
+            <button class="btn btn-primary btn-sm" id="sendEmail">Send Email</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Lead Details Offcanvas -->
 <div class="offcanvas offcanvas-end bg-dark text-white" tabindex="-1" id="leadDetailCanvas">

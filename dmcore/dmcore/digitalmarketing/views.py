@@ -1,12 +1,17 @@
 import json
 import re
+import os                                   #!===================== new import
+import uuid                                 #!===================== new import
+import threading                            #!===================== new import
+from django.conf import settings            #!===================== new import
+from django.core.mail import EmailMessage   #!===================== new import
 import pandas as pd
 from django.http import HttpResponse, JsonResponse
 from django.core.files.storage import default_storage
 from datetime import date
-from collections import defaultdict                              #!===================== new import
-from django.utils import timezone                                #!===================== new import
-from openpyxl import Workbook                                    #!===================== new import
+from collections import defaultdict
+from django.utils import timezone  
+from openpyxl import Workbook      
 
 from django.shortcuts import render,redirect
 from django.contrib import messages
@@ -1901,7 +1906,7 @@ def verify_leads_page(request, team_alloc_id, lead_category_id):
 
 def head_lead_transfer_page(request):
     leads = Leads.objects.filter(status=1, transfer_status=0).select_related('collected_by', 'lead_category', 'work__client')
-    employees = EmployeeRegister_Details.objects.all()
+    employees = EmployeeRegister_Details.objects.filter(id__in=leads.values_list('collected_by_id', flat=True))
     clients = ClientRegister.objects.all()
     categories = LeadCategory_Register.objects.all()
 
@@ -1921,7 +1926,7 @@ def transferred_leads_page(request):
     leads = Leads.objects.filter(transfer_status=1).select_related('collected_by', 'lead_category', 'work__client')
     clients = ClientRegister.objects.all()
     categories = LeadCategory_Register.objects.all()
-    employees = EmployeeRegister_Details.objects.all()
+    employees = EmployeeRegister_Details.objects.filter(id__in=leads.values_list('collected_by_id', flat=True))
 
     return render(request, 'dmhead/transferred_leads.html', {
         'leads': leads,
@@ -2064,6 +2069,65 @@ def transfer_selected_leads(request):
 
         except Exception as e:
             return JsonResponse({"success": False, "message": str(e)})
+
+    return JsonResponse({"success": False, "message": "Invalid request"})
+
+@csrf_exempt
+def send_lead_pdf_mail(request):
+    if request.method == "POST":
+        try:
+            email_list = request.POST.get("emails", "")
+            message_body = request.POST.get("message", "")
+            pdf_file = request.FILES.get("pdf")
+
+            if not email_list or not pdf_file:
+                return JsonResponse({"success": False, "message": "Missing email or PDF."})
+
+            recipients = [email.strip() for email in email_list.split(",") if email.strip()]
+            if not recipients:
+                return JsonResponse({"success": False, "message": "No valid recipients."})
+
+            email = EmailMessage(
+                subject="Shared Lead Report",
+                body=message_body,
+                from_email=settings.EMAIL_HOST_USER,
+                to=recipients
+            )
+            email.attach("lead_report.pdf", pdf_file.read(), "application/pdf")
+            email.send()
+            return JsonResponse({"success": True, "message": "Email sent successfully."})
+
+        except Exception as e:
+            print("Email sending failed:", e)
+            return JsonResponse({"success": False, "message": str(e)})
+    return JsonResponse({"success": False, "message": "Invalid request method."})
+
+@csrf_exempt
+def upload_temp_pdf(request):
+    if request.method == "POST" and request.FILES.get("pdf"):
+        pdf_file = request.FILES["pdf"]
+        unique_filename = f"{uuid.uuid4().hex}.pdf"
+
+        folder_path = os.path.join(settings.BASE_DIR, "static", "img", "shared_reports")
+        os.makedirs(folder_path, exist_ok=True)
+
+        file_path = os.path.join(folder_path, unique_filename)
+        with open(file_path, "wb") as f:
+            for chunk in pdf_file.chunks():
+                f.write(chunk)
+
+        def delete_file_later(path):
+            import time
+            time.sleep(30)
+            try:
+                os.remove(path)
+            except Exception as e:
+                print("Error deleting file:", e)
+
+        threading.Thread(target=delete_file_later, args=(file_path,)).start()
+
+        public_url = f"/static/img/shared_reports/{unique_filename}"
+        return JsonResponse({"success": True, "url": public_url})
 
     return JsonResponse({"success": False, "message": "Invalid request"})
 

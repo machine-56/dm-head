@@ -23,6 +23,7 @@
     <div class="col-md-2">
       <label>Client</label>
       <select id="clientFilter" class="form-select form-select-sm">
+        <option value="" disabled selected>Select Client</option>
         <option value="">All</option>
         {% for c in clients %}
           <option value="{{ c.id }}">{{ c.client_name }}</option>
@@ -32,6 +33,7 @@
     <div class="col-md-2">
       <label>Category</label>
       <select id="categoryFilter" class="form-select form-select-sm">
+        <option value="" disabled selected>Select Category</option>
         <option value="">All</option>
         {% for cat in categories %}
           <option value="{{ cat.id }}" class="client-category client-{{ cat.client_task.client.id }}" style="display: none;">
@@ -43,6 +45,7 @@
     <div class="col-md-2">
       <label>Employee</label>
       <select id="employeeFilter" class="form-select form-select-sm">
+        <option value="" disabled selected>Select Employee</option>
         <option value="">All</option>
         {% for emp in employees %}
           <option value="{{ emp.id }}">{{ emp.name }}</option>

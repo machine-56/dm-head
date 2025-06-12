@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function () {
     order: [],
     lengthChange: false,
     pageLength: rowLimitValue,
-    columnDefs: [{ orderable: false, targets: 0 }]
+    columnDefs: [{ orderable: false, targets: "nosort" }]
   });
 
   rowLimitElement?.addEventListener("change", function () {
@@ -161,6 +161,206 @@ document.getElementById("clientFilter")?.addEventListener("change", () => {
 });
 
 
+// ? =========== Print ==========
+document.getElementById("printBtn")?.addEventListener("click", () => {
+  const table = document.getElementById("leadTable");
+  const clonedTable = table.cloneNode(true);
+  clonedTable.querySelectorAll("thead th:first-child, tbody td:first-child").forEach(el => el.remove());
+
+  Array.from(clonedTable.querySelectorAll("tbody tr")).forEach(row => {
+    if (row.style.display === "none") row.remove();
+  });
+
+  Array.from(clonedTable.querySelectorAll("tbody tr")).forEach(row => {
+    const tds = row.querySelectorAll("td");
+    const badge = tds[3]?.querySelector(".badge");
+    if (badge) tds[3].textContent = badge.innerText.trim();
+  });
+
+  clonedTable.className = "table table-bordered table-sm";
+  clonedTable.style.fontSize = "10px";
+  clonedTable.style.width = "100%";
+  clonedTable.style.borderCollapse = "collapse";
+  clonedTable.querySelectorAll("th").forEach(th => {
+    th.removeAttribute("class");
+    th.style.backgroundColor = "#333333";
+    th.style.color = "#ffffff";
+    th.style.fontWeight = "bold";
+    th.style.border = "1px solid #ccc";
+    th.style.padding = "6px";
+    th.style.textAlign = "center";
+  });
+
+  clonedTable.querySelectorAll("td").forEach(td => {
+    td.style.textAlign = "center";
+    td.style.border = "1px solid #ccc";
+    td.style.padding = "4px";
+  });
+
+  const wrapper = document.createElement("div");
+  wrapper.style.padding = "20px";
+  wrapper.style.fontFamily = "sans-serif";
+  wrapper.style.backgroundColor = "#ffffff";
+  wrapper.innerHTML = `<h3 style="text-align: center; margin-bottom: 15px;">Verified Leads for Transfer</h3>`;
+  wrapper.appendChild(clonedTable);
+  const originalContent = document.body.innerHTML;
+  document.body.innerHTML = "";
+  document.body.style.backgroundColor = "#ffffff";
+  document.body.appendChild(wrapper);
+
+  window.print();
+  setTimeout(() => {
+    console.log("🔄 Restoring original page...");
+    document.body.innerHTML = originalContent;
+    location.reload();
+  }, 0);
+});
+
+// ? ========== share ==========
+document.getElementById("shareBtn")?.addEventListener("click", () => {
+  const table = document.getElementById("leadTable").cloneNode(true);
+
+  // Remove checkboxes
+  table.querySelectorAll("thead th:first-child, tbody td:first-child").forEach(el => el.remove());
+  Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
+    if (row.style.display === "none") row.remove();
+  });
+
+  // Strip badge
+Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
+  const tds = row.querySelectorAll("td");
+  const badge = tds[3]?.querySelector(".badge");
+  if (badge) tds[3].textContent = badge.innerText.trim();
+});
+
+
+  // Format
+  table.className = "table table-bordered table-sm";
+  table.style.fontSize = "10px";
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+  table.querySelectorAll("th").forEach(th => {
+    th.removeAttribute("class");
+    th.style.backgroundColor = "#333333";
+    th.style.color = "#ffffff";
+    th.style.fontWeight = "bold";
+    th.style.border = "1px solid #ccc";
+    th.style.padding = "6px";
+    th.style.textAlign = "center";
+  });
+  table.querySelectorAll("td").forEach(td => {
+    td.style.textAlign = "center";
+    td.style.border = "1px solid #ccc";
+    td.style.padding = "4px";
+  });
+
+  const wrapper = document.createElement("div");
+  const title = document.createElement("h3");
+  title.textContent = "Verified Leads for Transfer";
+  title.style.textAlign = "center";
+  title.style.marginBottom = "15px";
+  wrapper.appendChild(title);
+  wrapper.appendChild(table);
+
+  html2pdf().set({
+    margin: [0.4, 0.2],
+    filename: `Leads_${new Date().toISOString().split("T")[0]}.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
+  }).from(wrapper).outputPdf("blob").then(blob => {
+    const url = URL.createObjectURL(blob);
+    const modal = new bootstrap.Modal(document.getElementById("shareModal"));
+    modal.show();
+
+    // WhatsApp
+    document.getElementById("shareViaWhatsApp")?.addEventListener("click", () => {
+      console.log("📲 WhatsApp share clicked");
+        
+      generateShareablePDF(blob => {
+        console.log("📄 PDF blob ready");
+      
+        // Download locally (optional)
+        const file = new File([blob], "Lead_Report.pdf", { type: "application/pdf" });
+        const fileURL = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = fileURL;
+        a.download = "Lead_Report.pdf";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(fileURL);
+      
+        // Open WhatsApp
+        const message = encodeURIComponent("Please find the lead report attached.");
+        window.open(`https://wa.me/?text=${message}`, "_blank");
+      });
+    });
+
+
+    // Email toggle
+    document.getElementById("shareViaEmail").onclick = () => {
+      document.getElementById("emailSection").style.display = "block";
+    };
+
+    // Email send
+    document.getElementById("sendEmail")?.addEventListener("click", () => {
+      console.log("📨 Send Email clicked");
+    
+      const emails = document.getElementById("emailInput").value.trim();
+      const message = document.getElementById("emailMessage").value.trim();
+    
+      if (!emails) {
+        alert("Please enter at least one email address.");
+        return;
+      }
+    
+      generateShareablePDF(blob => {
+        const formData = new FormData();
+        formData.append("pdf", blob, "Lead_Report.pdf");
+        formData.append("emails", emails);
+        formData.append("message", message);
+      
+        fetch("/send_lead_pdf_mail/", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value
+          },
+          body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+          console.log("📨 Email response:", data);
+          if (data.success) {
+            alert("Email sent successfully.");
+            document.getElementById("emailInput").value = "";
+            document.getElementById("emailMessage").value = "";
+            document.getElementById("emailSection").style.display = "none";
+          
+            // Hide modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById("shareModal"));
+            modal?.hide();
+          } else {
+            alert("Email failed: " + (data.message || "Unknown error"));
+          }
+        })
+        .catch(err => {
+          console.error("❌ Email error:", err);
+          alert("Something went wrong while sending the email.");
+        });
+      });
+    });
+
+  });
+});
+
+
+
+
+
+
+// //fumctions
+
 function applyFilters() {
   const client = document.getElementById("clientFilter").value;
   const category = document.getElementById("categoryFilter").value;
@@ -221,24 +421,43 @@ function applyFilters() {
 function exportPDF() {
   const table = document.getElementById("leadTable").cloneNode(true);
   table.querySelectorAll("thead th:first-child, tbody td:first-child").forEach(el => el.remove());
-
-  const visibleRows = table.querySelectorAll("tbody tr");
-  visibleRows.forEach(row => {
+  Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
     if (row.style.display === "none") row.remove();
   });
 
-  const wrapper = document.createElement("div");
+  Array.from(table.querySelectorAll("td")).forEach(td => {
+    const badge = td.querySelector(".badge");
+    if (badge) {
+      td.textContent = badge.innerText.trim();
+    }
+  });
 
+  table.classList = "table table-bordered table-sm";
+  table.style.fontSize = "10px";
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+  table.querySelectorAll("th").forEach(th => {
+    th.removeAttribute("class");
+    th.style.backgroundColor = "#333333";
+    th.style.color = "#ffffff";
+    th.style.fontWeight = "bold";
+    th.style.border = "1px solid #ccc";
+    th.style.padding = "6px";
+    th.style.textAlign = "center";
+  });
+
+  table.querySelectorAll("td").forEach(td => {
+    td.style.textAlign = "center";
+    td.style.border = "1px solid #ccc";
+    td.style.padding = "4px";
+  });
+
+  const wrapper = document.createElement("div");
   const title = document.createElement("h3");
   title.textContent = "Verified Leads for Transfer";
   title.style.textAlign = "center";
   title.style.marginBottom = "15px";
   wrapper.appendChild(title);
-
-  table.classList.add("table", "table-bordered", "table-sm");
-  table.style.fontSize = "10px";
-  table.style.width = "100%";
-  table.style.borderCollapse = "collapse";
   wrapper.appendChild(table);
 
   html2pdf().set({
@@ -249,6 +468,7 @@ function exportPDF() {
     jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
   }).from(wrapper).save();
 }
+
 
 function filterCategoryByClient() {
   const selectedClientId = document.getElementById("clientFilter")?.value;
@@ -275,4 +495,61 @@ function filterCategoryByClient() {
   });
 }
 
+//? ========= share pdf generator =========
+function generateShareablePDF(callback) {
+  const table = document.getElementById("leadTable").cloneNode(true);
 
+  // Remove checkbox column
+  table.querySelectorAll("thead th:first-child, tbody td:first-child").forEach(el => el.remove());
+
+  // Remove hidden rows
+  Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
+    if (row.style.display === "none") row.remove();
+  });
+
+  // Strip badge from status column only
+  Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
+    const tds = row.querySelectorAll("td");
+    const badge = tds[3]?.querySelector(".badge");
+    if (badge) tds[3].textContent = badge.innerText.trim();
+  });
+
+  // Table styling
+  table.className = "table table-bordered table-sm";
+  table.style.fontSize = "10px";
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+
+  table.querySelectorAll("th").forEach(th => {
+    th.removeAttribute("class");
+    th.style.backgroundColor = "#333333";
+    th.style.color = "#ffffff";
+    th.style.fontWeight = "bold";
+    th.style.border = "1px solid #ccc";
+    th.style.padding = "6px";
+    th.style.textAlign = "center";
+  });
+
+  table.querySelectorAll("td").forEach(td => {
+    td.style.textAlign = "center";
+    td.style.border = "1px solid #ccc";
+    td.style.padding = "4px";
+  });
+
+  // Wrapper
+  const wrapper = document.createElement("div");
+  const title = document.createElement("h3");
+  title.textContent = "Verified Leads for Transfer";
+  title.style.textAlign = "center";
+  title.style.marginBottom = "15px";
+  wrapper.appendChild(title);
+  wrapper.appendChild(table);
+
+  html2pdf().set({
+    margin: [0.4, 0.2],
+    filename: `Leads_${new Date().toISOString().split("T")[0]}.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
+  }).from(wrapper).outputPdf("blob").then(callback);
+}

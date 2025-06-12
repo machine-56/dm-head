@@ -92,6 +92,8 @@ urlpatterns = [
     path("change-lead-status/", views.change_lead_status, name="change_lead_status"),
     path('download-excel-format/<int:lead_category_id>/', views.download_lead_excel_format, name='download_lead_excel_format'),
     path('transfer-selected-leads/', views.transfer_selected_leads, name='transfer_selected_leads'),
+    path("send_lead_pdf_mail/", views.send_lead_pdf_mail, name="send_lead_pdf_mail"),
+    path("upload_temp_pdf/", views.upload_temp_pdf, name="upload_temp_pdf"),
 
     # ===================================================== end DM head =====================================================
     
