@@ -161,7 +161,7 @@
 <!-- Dashboard -->
 <!-- Dashboard -->
 <li class="nav-item">
-    <a class="nav-link" href="#">
+    <a class="nav-link" href="{% url 'manager' %}">
       <i class="fas fa-tachometer-alt me-2"></i> <span class="link-text">Dashboard</span>
     </a>
   </li>
@@ -172,10 +172,10 @@
       <i class="fas fa-envelope me-2"></i> <span class="link-text">Employees</span>
     </a>
     <div class="collapse ps-3" id="messagesMenu">
-      <a class="nav-link" href="#">
+      <a class="nav-link" href="{% url 'hr_telecallers_view' %}">
         <i class="fas fa-comment-dots me-2"></i> <span class="link-text">Hr/telecallers</span>
       </a>
-      <a class="nav-link" href="#">
+      <a class="nav-link" href="{% url 'data_executives_view' %}">
         <i class="fas fa-exclamation-circle me-2"></i> <span class="link-text">Data executives</span>
       </a>
     </div>

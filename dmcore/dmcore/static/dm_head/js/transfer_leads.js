@@ -305,7 +305,7 @@ Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
 
     // Email send
     document.getElementById("sendEmail")?.addEventListener("click", () => {
-      console.log("📨 Send Email clicked");
+      console.log("Send Email clicked");
     
       const emails = document.getElementById("emailInput").value.trim();
       const message = document.getElementById("emailMessage").value.trim();
@@ -330,7 +330,7 @@ Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
         })
         .then(res => res.json())
         .then(data => {
-          console.log("📨 Email response:", data);
+          console.log("Email response:", data);
           if (data.success) {
             alert("Email sent successfully.");
             document.getElementById("emailInput").value = "";
@@ -345,7 +345,7 @@ Array.from(table.querySelectorAll("tbody tr")).forEach(row => {
           }
         })
         .catch(err => {
-          console.error("❌ Email error:", err);
+          console.error("Email error:", err);
           alert("Something went wrong while sending the email.");
         });
       });

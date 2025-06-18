@@ -1,10 +1,10 @@
 import json
 import re
-import os                                   #!===================== new import
-import uuid                                 #!===================== new import
-import threading                            #!===================== new import
-from django.conf import settings            #!===================== new import
-from django.core.mail import EmailMessage   #!===================== new import
+import os
+import uuid
+import threading
+from django.conf import settings
+from django.core.mail import EmailMessage
 import pandas as pd
 from django.http import HttpResponse, JsonResponse
 from django.core.files.storage import default_storage
@@ -2992,5 +2992,219 @@ def get_lead_details(request, lead_id):
 
     except Leads.DoesNotExist:
         return JsonResponse({"success": False, "message": "Lead not found."}, status=404)
+    
 # ======================================================== teamlead ================================================================
+
+# ======================================================== Data Manager ================================================================
+
+def data_bank_view(request):
+    leads_qs = DataBank.objects.select_related(
+        'lead', 'lead__work__client', 'lead__lead_category', 'lead__collected_by'
+    )
+
+    assignment_map = {
+        obj.lead_id: obj.telecaller_id
+        for obj in LeadAssignedToTC.objects.all()
+    }
+
+    for lead in leads_qs:
+        telecaller_id = assignment_map.get(lead.lead_id)
+        lead.hr_id = str(telecaller_id) if telecaller_id else ''
+        lead.is_allocated = bool(telecaller_id)
+
+
+    clients = ClientRegister.objects.all()
+    categories = LeadCategory_Register.objects.all()
+    hrs = EmployeeRegister_Details.objects.filter(designation_id=7)
+
+    context = {
+        'leads': leads_qs,
+        'clients': clients,
+        'categories': categories,
+        'hrs': hrs
+    }
+    return render(request, 'datamanager/data_bank.html', context)
+
+
+def allocation_leads_page(request):
+    leads_qs = LeadAssignedToTC.objects.select_related(
+        'lead', 'lead__work__client', 'lead__lead_category', 'lead__collected_by', 'telecaller'
+    )
+
+    databank_qs = DataBank.objects.select_related(
+        'lead', 'lead__work__client', 'lead__lead_category', 'lead__collected_by'
+    )
+
+    assignment_map = {
+        obj.lead_id: obj.telecaller_id
+        for obj in leads_qs
+    }
+
+    for row in databank_qs:
+        row.hr_id = str(assignment_map.get(row.lead_id, ''))
+        row.is_allocated = bool(row.hr_id)
+
+    clients = ClientRegister.objects.all()
+    hrs = EmployeeRegister_Details.objects.filter(designation_id=7)  # <-- Telecallers
+
+    return render(request, 'datamanager/allocationleads.html', {
+        'leads': databank_qs,
+        'clients': clients,
+        'hrs': hrs,
+    })
+
+
+def follow_up_view(request):
+    leads = LeadAssignedToTC.objects.select_related('lead', 'databank', 'telecaller').filter(
+        databank__lead_allocate_status=1
+    )
+
+    hrs = EmployeeRegister_Details.objects.filter(designation__dashboard_id='Telecaller')
+    return render(request, 'datamanager/followup.html', {
+        'leads': leads,
+        'hrs': hrs
+    })
+
+def hr_telecallers_view(request):
+    employees = EmployeeRegister_Details.objects.filter(
+        designation__dashboard_id='Telecaller'
+    ).select_related('login', 'department', 'designation')
+    return render(request, 'datamanager/hr_telecallers.html', {'employees': employees})
+
+def data_executives_view(request):
+    employees = EmployeeRegister_Details.objects.filter(
+        designation_id__in=[3, 5]
+    ).select_related('login', 'department', 'designation')
+    return render(request, 'datamanager/data_executives.html', {'employees': employees})
+
+
+#* functions
+
+def get_categories_for_client(request, client_id):
+    from .models import LeadCategory_Register
+    categories = LeadCategory_Register.objects.filter(client_task__client_id=client_id)
+    data = [{'id': c.id, 'name': c.collection_for} for c in categories]
+    return JsonResponse(data, safe=False)
+
+from django.http import JsonResponse
+from .models import Leads, DataBank, LeadDetails
+
+def get_lead_details_dm(request, lead_id):
+    try:
+        lead = Leads.objects.get(id=lead_id)
+        databank_entry = DataBank.objects.filter(lead=lead).first()
+        client = lead.work.client if lead.work and lead.work.client else None
+        extra_fields = LeadDetails.objects.filter(lead=lead)
+        extra_data = [{"label": d.field_name, "value": d.field_data} for d in extra_fields]
+
+        return JsonResponse({
+            "lead": {
+                "name": lead.name,
+                "email": lead.email,
+                "contact": lead.contact,
+            },
+            "client": {
+                "name": client.client_name if client else "-",
+                "info": client.client_business_name if client else "-"
+            },
+            "more_details": extra_data,
+            "followups": [
+                {
+                    "collected_by": lead.collected_by.name if lead.collected_by else "Unknown"
+                }
+            ],
+            "history": [
+                {
+                    "date": lead.added_date.strftime("%B %d, %Y") if lead.added_date else "-",
+                    "time": lead.added_time.strftime("%I:%M %p") if lead.added_time else "-"
+                }
+            ]
+        })
+
+    except Leads.DoesNotExist:
+        return JsonResponse({"error": "Lead not found"}, status=404)
+
+@csrf_exempt
+def allocate_leads(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        lead_ids = data.get('leads', [])
+        hr_id = data.get('hr_id')
+
+        hr = EmployeeRegister_Details.objects.filter(id=hr_id).first()
+        if not hr:
+            return JsonResponse({"success": False, "message": "Invalid HR selected."})
+
+        count = 0
+        for lead_id in lead_ids:
+            try:
+                lead = Leads.objects.get(id=lead_id)
+                databank = DataBank.objects.get(lead=lead)
+
+                LeadAssignedToTC.objects.create(
+                    lead=lead,
+                    databank=databank,
+                    telecaller=hr,
+                    client=lead.work.client if lead.work else None
+                )
+
+                databank.lead_allocate_status = 1
+                databank.lead_status = "Allocated"
+                databank.save()
+                count += 1
+
+            except (Leads.DoesNotExist, DataBank.DoesNotExist):
+                continue
+
+        return JsonResponse({
+            "success": True,
+            "message": f"{count} lead(s) allocated successfully."
+        })
+
+    return JsonResponse({"success": False, "message": "Invalid request method."})
+
+@csrf_exempt
+def deallocate_followups(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        lead_ids = data.get('lead_ids', [])
+
+        for lid in lead_ids:
+            obj = LeadAssignedToTC.objects.filter(id=lid).first()
+            if obj:
+                if obj.databank:
+                    obj.databank.lead_allocate_status = 0
+                    obj.databank.lead_status = 'Not Allocated'
+                    obj.databank.save()
+                obj.delete()
+
+        return JsonResponse({'success': True, 'message': f"{len(lead_ids)} leads deallocated."})
+    return JsonResponse({'success': False})
+
+
+@csrf_exempt
+def add_followup_status(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        status = data.get('status', '').strip()
+        if status:
+            # Replace with actual company if multi-company support needed
+            company = BusinessRegister_Details.objects.first()
+            FollowupStatus.objects.create(status_name=status, company=company)
+            return JsonResponse({'success': True})
+    return JsonResponse({'success': False})
+
+
+def get_followup_statuses(request):
+    statuses = FollowupStatus.objects.all().values('id', 'status_name')
+    return JsonResponse(list(statuses), safe=False)
+
+
+@csrf_exempt
+def delete_followup_status(request, status_id):
+    FollowupStatus.objects.filter(id=status_id).delete()
+    return JsonResponse({'success': True})
+
+
+# ======================================================== Data Manager ================================================================
 

@@ -422,7 +422,7 @@ class LeadCateogry_TeamAllocate(models.Model):
     description = models.TextField(null=True, blank=True)
     from_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
-    accept_date = models.DateField(null=True, blank=True)   #! =========== new field
+    accept_date = models.DateField(null=True, blank=True)
     target = models.IntegerField(default=0)
     target_achieved = models.IntegerField(default=0)
     file = models.FileField(upload_to='work/files', null=True, blank=True)
@@ -543,7 +543,6 @@ class SocialMediaPromotion(models.Model):
 #================================================= end Team leader models ===============================================
 
 #=================================================  DM Head models ===============================================
-# new
 class DataBank(models.Model):
     lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
     generated_date = models.DateField(auto_now_add=True, null=True, blank=True)
@@ -552,7 +551,7 @@ class DataBank(models.Model):
     current_status = models.CharField(max_length=150, default='No update')
     allocated_date = models.DateField(null=True, blank=True)
     followup_date = models.DateField(null=True, blank=True)
-    lead_status = models.CharField(max_length=150, default='Not Attended')
+    lead_status = models.CharField(max_length=150, default='Not Allocated')
 
     def _str_(self):
         return f"{self.lead} - {self.lead_status}"
@@ -576,5 +575,33 @@ class PlatformData(models.Model):
         return f"{self.platform_name} - {self.platform_data_count}"
 
 #================================================= end DM Head models ===============================================
+
+#================================================= Data Manager models ===============================================
+
+class LeadAssignedToTC(models.Model):
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
+    databank = models.ForeignKey(DataBank, on_delete=models.CASCADE, null=True, blank=True)
+    telecaller = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    response = models.CharField(max_length=255, default='', null=True, blank=True)
+    reason = models.CharField(max_length=255, default='No Data Availale', null=True, blank=True)
+    assign_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    allocate_time = models.TimeField(auto_now_add=True)
+    update_date = models.DateField(null=True, blank=True)
+    next_update_date = models.DateField(null=True, blank=True)
+    update_action = models.IntegerField(default=0)
+    status = models.IntegerField(default=0)
+    client = models.ForeignKey(ClientRegister, on_delete=models.CASCADE, null=True, blank=True)
+
+    def _str_(self):
+        return f"{self.lead} - {self.telecaller}"
+
+class FollowupStatus(models.Model):
+    status_name = models.CharField(max_length=150, default='')
+    company = models.ForeignKey(BusinessRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return self.status_name
+    
+#================================================= end Data Manager models ===============================================
     
 

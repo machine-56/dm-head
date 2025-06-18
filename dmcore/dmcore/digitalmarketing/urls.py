@@ -12,7 +12,7 @@ urlpatterns = [
     path('dmhead',views.dmhead,),
     path('teamlead',views.teamlead),
     path('executive',views.executive),
-    path('manager',views.manager),
+    path('manager',views.manager, name='manager'),
     path('telecaller',views.telecaller),
     
     path('departments',views.departments,name='departments'),
@@ -82,7 +82,6 @@ urlpatterns = [
     path('get-workassign-desc/<int:assign_id>/', views.get_workassign_desc, name='get_workassign_desc'),
     path('get-full-workassign/<int:assign_id>/', views.get_full_workassign, name='get_full_workassign'),
 
-    # !====================== new 05 june ==================
     path('dmhead/leads/', views.dmhead_leads_page, name='dmhead_leads_page'),
     path('verify-leads/<int:team_alloc_id>/<int:lead_category_id>/', views.verify_leads_page, name='verify_leads_page'),
     path('transfer-leads/', views.head_lead_transfer_page, name='head_lead_transfer_page'),
@@ -120,5 +119,23 @@ urlpatterns = [
     path('get-lead-details/<int:lead_id>/', views.get_lead_details, name='get_lead_details'),
 
     # ===================================================== teamlead =====================================================
+    # ===================================================== Data Manager =====================================================
+    # !====================== new 13 june ==================
+    path('databank/', views.data_bank_view, name='data_bank_view'),
+    path('allocation-leads/', views.allocation_leads_page, name='allocation_leads_page'),
+    path('follow-up/', views.follow_up_view, name='follow_up_view'),
+    path('hr-telecallers/', views.hr_telecallers_view, name='hr_telecallers_view'),
+    path('data-executives/', views.data_executives_view, name='data_executives_view'),
+    
+    path('get-categories-for-client/<int:client_id>/', views.get_categories_for_client, name='get_categories_for_client'),
+    path('get_lead_details/<int:lead_id>/', views.get_lead_details_dm, name='get_lead_details_dm'),
+    path('allocate-leads/', views.allocate_leads, name='allocate_leads'),
+
+    path('deallocate-followups/', views.deallocate_followups, name='deallocate_followups'),
+    path('add-followup-status/', views.add_followup_status, name='add_followup_status'),
+    path('get-followup-statuses/', views.get_followup_statuses, name='get_followup_statuses'),
+    path('delete-followup-status/<int:status_id>/', views.delete_followup_status, name='delete_followup_status'),
+
+    # ===================================================== Data Manager =====================================================
 
 ]
