@@ -3027,30 +3027,66 @@ def data_bank_view(request):
 
 
 def allocation_leads_page(request):
-    leads_qs = LeadAssignedToTC.objects.select_related(
-        'lead', 'lead__work__client', 'lead__lead_category', 'lead__collected_by', 'telecaller'
-    )
-
+    try:
+        user = LogRegister_Details.objects.get(log_username=request.session.get('did'))
+        employee = EmployeeRegister_Details.objects.filter(login=user).first()
+        company = employee.company if employee else None
+        if not company:
+            raise Exception("No company found for user.")
+    except Exception as e:
+        print(f"Auth error: {e}")
+        return redirect('/login')
+    
     databank_qs = DataBank.objects.select_related(
         'lead', 'lead__work__client', 'lead__lead_category', 'lead__collected_by'
-    )
+    ).filter(lead__work__company=company)
 
-    assignment_map = {
-        obj.lead_id: obj.telecaller_id
-        for obj in leads_qs
+    assigned_map = {
+        obj.databank_id: obj.telecaller_id
+        for obj in LeadAssignedToTC.objects.select_related('databank', 'telecaller')
     }
 
-    for row in databank_qs:
-        row.hr_id = str(assignment_map.get(row.lead_id, ''))
-        row.is_allocated = bool(row.hr_id)
+    leads_list = []
+    for i, row in enumerate(databank_qs, start=1):
+        hr_id = str(assigned_map.get(row.id, ''))
+        exec_id = str(row.lead.collected_by.id) if row.lead.collected_by else ''
+        is_allocated = bool(hr_id)
 
-    clients = ClientRegister.objects.all()
-    hrs = EmployeeRegister_Details.objects.filter(designation_id=7)  # <-- Telecallers
+        leads_list.append({
+            'row': row,
+            'hr_id': hr_id,
+            'exec_id': exec_id,
+            'is_allocated': is_allocated
+        })
+
+    status = request.GET.get('status', '').strip()
+    hr = request.GET.get('hr', '').strip()
+
+    clients = ClientRegister.objects.filter(company=company)
+
+    all_db_ids = DataBank.objects.filter(lead__work__company=company).values_list('id', flat=True)
+    hr_ids = LeadAssignedToTC.objects.filter(
+        databank_id__in=all_db_ids
+    ).values_list('telecaller_id', flat=True).distinct()
+    hrs = EmployeeRegister_Details.objects.filter(id__in=hr_ids, designation_id=7)
+
+    exec_ids = DataBank.objects.filter(
+        lead__work__company=company
+    ).values_list('lead__collected_by_id', flat=True).distinct()
+    executives = EmployeeRegister_Details.objects.filter(
+        id__in=exec_ids,
+        designation_id__in=[3, 5]
+    )
 
     return render(request, 'datamanager/allocationleads.html', {
-        'leads': databank_qs,
+        'leads': leads_list,
         'clients': clients,
         'hrs': hrs,
+        'executives': executives,
+        'not_allocated': DataBank.objects.filter(
+            lead__work__company=company,
+            lead_status='Not Allocated'
+        ).count()
     })
 
 

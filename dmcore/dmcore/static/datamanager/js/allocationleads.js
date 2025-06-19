@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
+  console.log("DOM ready. Initializing filters...");
+
   const table = $('#allocationLeadsTable').DataTable({
     paging: true,
     ordering: true,
@@ -7,12 +9,10 @@ document.addEventListener("DOMContentLoaded", function () {
     pageLength: parseInt(document.getElementById('rowCount')?.value || 25)
   });
 
-  // Row count change
   document.getElementById('rowCount')?.addEventListener('change', function () {
     table.page.len(parseInt(this.value)).draw();
   });
 
-  // Search input
   document.getElementById('searchInput')?.addEventListener('keyup', function () {
     const val = this.value.toLowerCase();
     $('#allocationLeadsTable tbody tr').each(function () {
@@ -21,20 +21,19 @@ document.addEventListener("DOMContentLoaded", function () {
     toggleNoData();
   });
 
-  // Clear search input
   document.getElementById('clearSearch')?.addEventListener('click', function () {
     const input = document.getElementById('searchInput');
-    if (input) {
-      input.value = '';
-      input.dispatchEvent(new Event('keyup'));
-    }
+    input.value = '';
+    applyFilters();
   });
 
-  // Client → Category dynamic loading
+
+
   document.getElementById('clientSelect')?.addEventListener('change', function () {
     const clientId = this.value;
     const categorySelect = document.getElementById('categorySelect');
     categorySelect.innerHTML = '<option value="">All</option>';
+    console.log(`Client selected: ${clientId}`);
 
     if (clientId) {
       fetch(`/get-categories-for-client/${clientId}/`)
@@ -53,41 +52,34 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // All filter listeners
   ['clientSelect', 'categorySelect', 'executiveSelect', 'statusSelect', 'startDate', 'endDate', 'hrFilter'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('change', applyFilters);
+    document.getElementById(id)?.addEventListener('change', applyFilters);
   });
 
-  // Apply filters on load
-  applyFilters();
-
-  // Clear Filters button
   document.getElementById('clearFilters')?.addEventListener('click', function () {
+    console.log("Clearing all filters...");
     document.getElementById('clientSelect').selectedIndex = 0;
     document.getElementById('categorySelect').selectedIndex = 0;
     document.getElementById('executiveSelect').selectedIndex = 0;
     document.getElementById('startDate').value = '';
     document.getElementById('endDate').value = '';
     document.getElementById('statusSelect').value = 'Not Allocated';
-    document.getElementById('hrFilter').value = 'none';
+    document.getElementById('hrFilter').selectedIndex = 0;
     applyFilters();
   });
 
-  // Select All
   document.getElementById('selectAll')?.addEventListener('change', function () {
     const checked = this.checked;
-    document.querySelectorAll('#allocationLeadsTable tbody input[type="checkbox"]')
-      .forEach(cb => cb.checked = checked);
+    document.querySelectorAll('#allocationLeadsTable tbody input[type="checkbox"]').forEach(cb => {
+      if (!cb.disabled) cb.checked = checked;
+    });
     updateSelectedCount();
   });
 
-  // Per-row checkbox update
   document.querySelectorAll('#allocationLeadsTable tbody').forEach(tbody => {
     tbody.addEventListener('change', updateSelectedCount);
   });
 
-  // Allocate button
   document.getElementById('allocateBtn')?.addEventListener('click', function () {
     const selectedLeads = Array.from(document.querySelectorAll('#allocationLeadsTable tbody input[type="checkbox"]:checked'))
       .map(cb => cb.dataset.leadId);
@@ -104,25 +96,17 @@ document.addEventListener("DOMContentLoaded", function () {
         'Content-Type': 'application/json',
         'X-CSRFToken': getCookie('csrftoken')
       },
-      body: JSON.stringify({
-        leads: selectedLeads,
-        hr_id: selectedHr
-      })
+      body: JSON.stringify({ leads: selectedLeads, hr_id: selectedHr })
     })
       .then(res => res.json())
       .then(data => {
         showToast(data.message, data.success ? 'success' : 'danger');
-        if (data.success) {
-          setTimeout(() => window.location.reload(), 3500);
-        }
+        if (data.success) setTimeout(() => window.location.reload(), 1600);
       })
       .catch(() => alert('Something went wrong.'));
   });
 
-  function updateSelectedCount() {
-    const count = document.querySelectorAll('#allocationLeadsTable tbody input[type="checkbox"]:checked').length;
-    document.getElementById('selectedCount').textContent = count;
-  }
+  applyFilters();
 
 function applyFilters() {
   const client = document.getElementById('clientSelect')?.value;
@@ -133,31 +117,31 @@ function applyFilters() {
   const start = document.getElementById('startDate')?.value;
   const end = document.getElementById('endDate')?.value;
 
+  console.log("Applying filters →", { client, category, executive, status, hr, start, end });
+
   $('#allocationLeadsTable tbody tr').each(function () {
     const row = $(this);
-    const rowClient = row.data('client-id')?.toString();
-    const rowCategory = row.data('category-id')?.toString();
-    const rowStatus = row.data('status')?.toLowerCase();
-    const rowExec = row.data('executive-id')?.toString();
-    const rowHr = row.data('hr')?.toString();
-    const rowDate = row.data('added')?.toString();
-    const isAllocated = row.data('allocated')?.toString() === '1';
+    const rowClient = String(row.data('client-id'));
+    const rowCategory = String(row.data('category-id'));
+    const rowExec = String(row.data('executive-id'));
+    const rowStatus = String(row.data('status')).toLowerCase();
+    const rowHr = String(row.data('hr'));
+    const rowDate = row.data('added');
+    const isAllocated = String(row.data('allocated')) === '1';
 
     let visible = true;
 
+    //? Stack filters
     if (client && rowClient !== client) visible = false;
     if (category && rowCategory !== category) visible = false;
     if (executive && rowExec !== executive) visible = false;
     if (start && (!rowDate || rowDate < start)) visible = false;
     if (end && (!rowDate || rowDate > end)) visible = false;
-
-    if (hr === 'none') {
-      if (isAllocated) visible = false;
-      if (status && rowStatus !== status) visible = false;
-    } else if (hr === '') {
-      if (!isAllocated) visible = false;
+    if (!status && !hr) {
+      if (rowStatus !== 'not allocated') visible = false;
     } else {
-      if (!isAllocated || rowHr !== hr) visible = false;
+      if (status && rowStatus !== status) visible = false;
+      if (hr && hr !== 'none' && rowHr !== hr) visible = false;
     }
 
     row.toggle(visible);
@@ -169,66 +153,34 @@ function applyFilters() {
 
   function toggleNoData() {
     const visibleRows = $('#allocationLeadsTable tbody tr:visible').length;
-    $('#noDataMessage').toggle(visibleRows === 0);
+    document.getElementById('noDataMessage').style.display = visibleRows === 0 ? 'block' : 'none';
   }
-});
 
-function openLeadDetails(leadId) {
-  fetch(`/get_lead_details/${leadId}/`)
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('leadName').textContent = data.lead.name || '-';
-      document.getElementById('leadEmail').textContent = data.lead.email || '-';
-      document.getElementById('leadContact').textContent = data.lead.contact || '-';
-      document.getElementById('clientName').textContent = data.client.name || '-';
-      document.getElementById('clientInfo').textContent = data.client.info || '-';
+  function updateSelectedCount() {
+    const count = document.querySelectorAll('#allocationLeadsTable tbody input[type="checkbox"]:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+  }
 
-      const moreDetailsDiv = document.getElementById('leadExtraDetails');
-      moreDetailsDiv.innerHTML = '';
-      if (data.more_details?.length) {
-        data.more_details.forEach(item => {
-          const p = document.createElement('p');
-          p.innerHTML = `<i class="bi bi-file-text"></i> ${item.label} : ${item.value}`;
-          moreDetailsDiv.appendChild(p);
-        });
-      } else {
-        moreDetailsDiv.innerHTML = '<p>No extra details found.</p>';
-      }
+  function showToast(message, type = 'success') {
+    const toastEl = document.getElementById('allocationToast');
+    const toastMsg = document.getElementById('allocationToastMessage');
+    toastMsg.textContent = message;
+    toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+    new bootstrap.Toast(toastEl).show();
+  }
 
-      const followupDiv = document.getElementById('followupTrack');
-      followupDiv.innerHTML = data.followups?.length
-        ? `<div>Collected By: ${data.followups[0].collected_by}</div>`
-        : '<div>No followup data.</div>';
-
-      const historyDiv = document.getElementById('historyTrack');
-      historyDiv.innerHTML = data.history?.length
-        ? `<div>Added on: ${data.history[0].date} at ${data.history[0].time}</div>`
-        : '<div>No history data.</div>';
-    })
-    .catch(() => {
-      console.error('Failed to load lead details.');
-    });
-}
-
-function showToast(message, type = 'success') {
-  const toastEl = document.getElementById('allocationToast');
-  const toastMsg = document.getElementById('allocationToastMessage');
-  toastMsg.textContent = message;
-  toastEl.className = `toast align-items-center text-bg-${type} border-0`;
-  new bootstrap.Toast(toastEl).show();
-}
-
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let cookie of cookies) {
-      cookie = cookie.trim();
-      if (cookie.startsWith(name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        cookie = cookie.trim();
+        if (cookie.startsWith(name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
       }
     }
+    return cookieValue;
   }
-  return cookieValue;
-}
+});
