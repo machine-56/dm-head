@@ -603,5 +603,54 @@ class FollowupStatus(models.Model):
         return self.status_name
     
 #================================================= end Data Manager models ===============================================
+
+#================================================= telecaller models ===================================================
+class FollowupHistory(models.Model):
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
+    company = models.ForeignKey(BusinessRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    telecaller = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    allocated_date = models.DateField(null=True, blank=True)
+    note = models.TextField(default='', null=True, blank=True)
+    final_status = models.CharField(max_length=150, default='')
+
+class WasteLead(models.Model):
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
+    assignment = models.ForeignKey(LeadAssignedToTC, on_delete=models.CASCADE, null=True, blank=True)
+    databank = models.ForeignKey(DataBank, on_delete=models.CASCADE, null=True, blank=True)
+    client = models.ForeignKey(ClientRegister, on_delete=models.CASCADE, null=True, blank=True)
+    telecaller = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    waste_marked_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    reason = models.TextField(default='', blank=True)
+    status = models.IntegerField(default=0)
+    head_reason = models.TextField(default='', blank=True)
+    confirmation = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"WasteLead - {self.lead}"
+        
+class FollowupDetails(models.Model):
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
+    company = models.ForeignKey(BusinessRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    telecaller = models.ForeignKey(EmployeeRegister_Details, on_delete=models.CASCADE, null=True, blank=True)
+    response_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    response = models.TextField(default='', null=True, blank=True)
+    next_followup_date = models.DateField(null=True, blank=True)
+    response_status = models.CharField(max_length=150, default='')
+
+    def __str__(self):
+        return f"{self.lead} - {self.response_status}"
+
+class LeadCallRecord(models.Model):
+    assignment = models.ForeignKey(LeadAssignedToTC, on_delete=models.CASCADE, null=True, blank=True)
+    lead = models.ForeignKey(Leads, on_delete=models.CASCADE, null=True, blank=True)
+    record_date = models.DateField(auto_now_add=True, null=True, blank=True)
+    record_time = models.TimeField(auto_now_add=True, null=True, blank=True)
+    record_file = models.FileField(upload_to='record/', null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.lead} - {self.record_date} {self.record_time}"
+
+
+#================================================= end telecaller models ===============================================
     
 

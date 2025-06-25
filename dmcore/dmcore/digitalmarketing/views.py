@@ -1,6 +1,9 @@
 import json
 import re
 import os
+from django.db.models import Q                              #!================= new import
+from django.utils.dateparse import parse_date               #!================= new import
+from django.db.models import Count                          #!================= new import
 import uuid
 import threading
 from django.conf import settings
@@ -184,7 +187,7 @@ def teamlead(request):
 
     try:
         user = LogRegister_Details.objects.get(log_username=aid)
-        company = BusinessRegister_Details.objects.filter(login=user).first()
+        company = BusinessRegister_Details.objects.filter(login=user).first()  #! ====doesnt work
         name=EmployeeRegister_Details.objects.filter(login=user).first()
     except LogRegister_Details.DoesNotExist:
         user = None
@@ -237,24 +240,50 @@ def manager(request):
     })
     
 def telecaller(request):
-    aid = request.session.get('tcid')
+    username = request.session.get('tcid')
+    user = LogRegister_Details.objects.get(log_username=username)
+    employee = EmployeeRegister_Details.objects.get(login=user)
 
-    if not aid:
-        return redirect('login')  # or appropriate login URL
+    leads_qs = LeadAssignedToTC.objects.filter(
+        telecaller=employee,
+        status=0
+    ).select_related('lead')
 
-    try:
-        user = LogRegister_Details.objects.get(log_username=aid)
-        company = BusinessRegister_Details.objects.filter(login=user).first()
-        name=EmployeeRegister_Details.objects.filter(login=user).first()
-    except LogRegister_Details.DoesNotExist:
-        user = None
-        company = None
-    print("hello")
-    return render(request, 'telecaller/telecallerdash.html', {
+    status_filter = request.GET.get('status')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    query = request.GET.get('q')
+
+    if status_filter:
+        if status_filter.lower() == 'allocated':
+            leads_qs = leads_qs.filter(status=1)
+        elif status_filter.lower() == 'opened':
+            leads_qs = leads_qs.filter(status=2)
+        elif status_filter.lower() == 'closed':
+            leads_qs = leads_qs.filter(status=3)
+
+    if start:
+        start_date = parse_date(start)
+        leads_qs = leads_qs.filter(assign_date__gte=start_date)
+    if end:
+        end_date = parse_date(end)
+        leads_qs = leads_qs.filter(assign_date__lte=end_date)
+
+    if query:
+        leads_qs = leads_qs.filter(
+            Q(lead__name__icontains=query) |
+            Q(lead__email__icontains=query) |
+            Q(lead__contact__icontains=query)
+        )
+
+    context = {
         'user': user,
-        'company': company,
-        'name':name
-    })
+        'name': employee,
+        'new_leads': leads_qs,
+        'lead_count': leads_qs.count(),
+    }
+
+    return render(request, 'telecaller/hr_dashboard.html', context)
     
 def departments(request):
     aid = request.session.get('aid')
@@ -583,15 +612,15 @@ phone_regex = re.compile(r'^\d{10}$')
 website_regex = re.compile(r'^https?:\/\/.+\..+')
 
 def register_client(request):
-    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
-    employee = EmployeeRegister_Details.objects.filter(login=user).first()
-    company = employee.company if employee else None
+    user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))   #*=== this is how
+    employee = EmployeeRegister_Details.objects.filter(login=user).first()            #*=== this is how
+    company = employee.company if employee else None                                  #*=== this is how
 
     name=EmployeeRegister_Details.objects.filter(login=user).first()
     logged_in_user = LogRegister_Details.objects.get(log_username=request.session.get('hid'))
     dm_head_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
     # company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
-    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()
+    user_company = BusinessRegister_Details.objects.filter(login=logged_in_user).first()  #!=== will not work
     employee_profile = EmployeeRegister_Details.objects.filter(login=logged_in_user).first()
 
 
@@ -3181,11 +3210,13 @@ def allocate_leads(request):
                     lead=lead,
                     databank=databank,
                     telecaller=hr,
-                    client=lead.work.client if lead.work else None
+                    client=lead.work.client if lead.work else None,
+                    allocated_date=date.today()
                 )
 
                 databank.lead_allocate_status = 1
                 databank.lead_status = "Allocated"
+                databank.allocated_date = date.today()
                 databank.save()
                 count += 1
 
@@ -3211,6 +3242,7 @@ def deallocate_followups(request):
                 if obj.databank:
                     obj.databank.lead_allocate_status = 0
                     obj.databank.lead_status = 'Not Allocated'
+                    obj.allocated_date= 'null'
                     obj.databank.save()
                 obj.delete()
 
@@ -3244,3 +3276,546 @@ def delete_followup_status(request, status_id):
 
 # ======================================================== Data Manager ================================================================
 
+# ======================================================== telecaller ================================================================
+
+
+def telecaller_all_leads(request):
+    username = request.session.get('tcid')
+    if not username:
+        return redirect('login')
+
+    login_user = LogRegister_Details.objects.filter(log_username=username).first()
+    telecaller = EmployeeRegister_Details.objects.filter(login=login_user).first()
+
+    all_allocs = LeadAssignedToTC.objects.filter(telecaller=telecaller).select_related(
+        'lead', 'databank'
+    ).order_by('-assign_date')
+
+    context = {
+        'leads': all_allocs,
+        'name': telecaller,
+        'lead_count': all_allocs.count()
+    }
+
+    return render(request, 'telecaller/all_leads.html', context)
+
+
+def telecaller_followups_page(request):
+    username = request.session.get('tcid')
+    if not username:
+        return redirect('login')
+
+    telecaller = LogRegister_Details.objects.filter(log_username=username).first()
+    emp = EmployeeRegister_Details.objects.filter(login=telecaller).first()
+    statuses = FollowupStatus.objects.values_list('status_name', flat=True)
+
+    leads = LeadAssignedToTC.objects.filter(
+        status=1
+    ).exclude(
+        response__in=["Waste Lead", "Lead Closed"]
+    )
+
+
+    context = {
+        "name": emp,
+        "statuses": statuses,
+        "leads": leads,
+    }
+    return render(request, 'telecaller/followup_leads.html', context)
+
+
+def telecaller_waste_leads(request):
+    if 'tcid' not in request.session:
+        return redirect('login')
+
+    login_user = LogRegister_Details.objects.get(log_username=request.session.get('tcid'))
+    employee = EmployeeRegister_Details.objects.get(login=login_user)
+
+    waste_leads = LeadAssignedToTC.objects.filter(
+        status=2,
+        telecaller=employee
+    ).select_related(
+        'lead',
+        'databank',
+        'client'
+    )
+
+    context = {
+        'leads': waste_leads
+    }
+    return render(request, 'telecaller/waste_leads.html', context)
+
+
+def closed_leads_page(request):
+    user = LogRegister_Details.objects.get(log_username=request.session.get('tcid'))
+    employee = EmployeeRegister_Details.objects.filter(login=user).first()
+
+    leads = LeadAssignedToTC.objects.filter(status=3).select_related(
+        'lead', 'lead__work', 'lead__lead_category', 'telecaller', 
+    ).order_by('-assign_date')
+
+    return render(request, 'telecaller/closed_leads.html', {
+        'leads': leads,
+        'name': employee
+    })
+
+def telecaller_leads_report(request):
+    username = request.session.get('tcid')
+    if not username:
+        return redirect('login')
+
+    login_user = LogRegister_Details.objects.filter(log_username=username).first()
+    telecaller = EmployeeRegister_Details.objects.filter(login=login_user).first()
+
+    assigned_dates = LeadAssignedToTC.objects.filter(
+        telecaller=telecaller
+    ).values('assign_date').annotate(count=Count('id')).order_by('-assign_date')
+
+    return render(request, 'telecaller/leads_report.html', {
+        'assigned_dates': assigned_dates,
+        'name': telecaller
+    })
+
+# * js calls
+@csrf_exempt
+def accept_leads(request):
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        ids = data.get('lead_ids', [])
+
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No leads selected'})
+
+        updated = LeadAssignedToTC.objects.filter(id__in=ids).update(status=1)
+        return JsonResponse({'success': True, 'updated': updated})
+
+
+@csrf_exempt
+def lead_data_collection_hr(request, lead_id):
+    try:
+        lead = Leads.objects.select_related('work__client', 'collected_by').get(id=lead_id)
+        databank_entry = lead.databank_set.first()
+        assigned_obj = LeadAssignedToTC.objects.filter(lead=lead).select_related('telecaller').first()
+
+        client = lead.work.client if lead.work and lead.work.client else None
+        telecaller = assigned_obj.telecaller if assigned_obj else None
+        collected_by = lead.collected_by
+        databank = DataBank.objects.filter(lead=lead).select_related('lead__lead_category').first()
+        category_name = databank.lead.lead_category.collection_for if databank and databank.lead and databank.lead.lead_category else "-"
+        status = databank.lead_status if databank else "-"
+        next_followup = assigned_obj.next_update_date if assigned_obj and assigned_obj.next_update_date else (databank.followup_date if databank and databank.followup_date else "-")
+
+        extra_fields = LeadDetails.objects.filter(lead=lead)
+        extra_data = [
+            {"field_name": d.field_name, "field_data": d.field_data}
+            for d in extra_fields
+        ]
+
+        return JsonResponse({
+            "success": True,
+            "lead": {
+                "id": lead.id,
+                "name": lead.name,
+                "email": lead.email,
+                "contact": lead.contact,
+                "added_date": lead.added_date.strftime("%Y-%m-%d") if lead.added_date else "-"
+            },
+            "client": {
+                "name": client.client_name if client else "-",
+                "business": client.client_business_name if client else "-",
+            },
+            "telecaller": {
+                "id": telecaller.id if telecaller else "-",
+                "name": telecaller.name if telecaller else "Unknown",
+            },
+            "collected_by": {
+                "id": collected_by.id if collected_by else "-",
+                "name": collected_by.name if collected_by else "Unknown"
+            },
+            "extra_fields": extra_data,
+            "category": category_name,
+            "current_status": status,
+            "next_followup": next_followup.strftime("%Y-%m-%d") if isinstance(next_followup, date) else next_followup,
+        })
+
+    except Leads.DoesNotExist:
+        return JsonResponse({"success": False, "message": "Lead not found"})
+
+    except Exception as e:
+        print("Error in lead_data_collection_hr:", e)
+        return JsonResponse({"success": False, "message": str(e)})
+
+
+@csrf_exempt
+def get_leads_by_date(request):
+    if request.method == 'POST':
+        date = request.POST.get('date')
+        username = request.session.get('tcid')
+        login_user = LogRegister_Details.objects.filter(log_username=username).first()
+        telecaller = EmployeeRegister_Details.objects.filter(login=login_user).first()
+
+        if date:
+            leads = LeadAssignedToTC.objects.filter(
+                telecaller=telecaller,
+                assign_date=date
+            ).select_related('lead')
+        else:
+            leads = LeadAssignedToTC.objects.filter(
+                telecaller=telecaller
+            ).select_related('lead')
+
+        data = []
+        for i, entry in enumerate(leads, start=1):
+            lead = entry.lead
+            databank = DataBank.objects.filter(lead=lead).first()
+            data.append({
+                'no': i,
+                'id': lead.id,
+                'assigned_date': entry.assign_date.strftime("%Y-%m-%d"),
+                'name': lead.name,
+                'email': lead.email,
+                'contact': lead.contact,
+                'status': databank.current_status if databank else 'N/A'
+            })
+
+        return JsonResponse({'success': True, 'leads': data})
+    return JsonResponse({'success': False, 'message': 'Invalid request'})
+
+
+def get_lead_details_hr(request, lead_id):
+    try:
+        lead = Leads.objects.get(id=lead_id)
+        assignment = LeadAssignedToTC.objects.filter(lead=lead).first()
+        client = assignment.client if assignment else None
+        databank_entry = assignment.databank if assignment else None
+
+        field_data = LeadDetails.objects.filter(lead=lead).values('field_name', 'field_data')
+        history = FollowupHistory.objects.filter(lead=lead).values('allocated_date', 'note', 'final_status')
+        followups = FollowupDetails.objects.filter(lead=lead).values('response', 'next_followup_date', 'response_status')
+        recordings = LeadCallRecord.objects.filter(lead=lead).first()
+
+        return JsonResponse({
+            "success": True,
+            "lead": {
+                "name": lead.name,
+                "email": lead.email,
+                "contact": lead.contact
+            },
+            "client": {
+                "name": client.client_name if client else "-",
+                "info": client.client_business_name if client else "-"
+            },
+            "more_details": list(field_data),
+            "history": [
+                {
+                    "date": str(h['allocated_date']),
+                    "note": h['note'],
+                    "status": h['final_status']
+                }
+                for h in history
+            ],
+            "followups": [
+                {
+                    "response": f["response"],
+                    "date": str(f["next_followup_date"]),
+                    "status": f["response_status"]
+                }
+                for f in followups
+            ],
+            "recording": recordings.record_file.url if recordings and recordings.record_file else None
+        })
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@csrf_exempt
+def submit_followup_update(request):
+    if request.method == 'POST':
+        lead_id = request.POST.get('lead_id')
+        response = request.POST.get('response')
+        next_date = request.POST.get('next_followup')
+        reason = request.POST.get('reason')
+        file = request.FILES.get('call_recording')
+
+        try:
+            lead = Leads.objects.get(id=lead_id)
+            user = LogRegister_Details.objects.get(log_username=request.session.get('tcid'))
+            employee = EmployeeRegister_Details.objects.filter(login=user).first()
+            company = employee.company if employee else None
+
+            followup = FollowupDetails.objects.create(
+                lead=lead,
+                company=company,
+                telecaller=employee,
+                response=reason,
+                next_followup_date=next_date,
+                response_status=response
+            )
+
+            assigned = LeadAssignedToTC.objects.filter(lead=lead, telecaller=employee).first()
+            if assigned:
+                assigned.response = response
+                assigned.reason = reason
+                assigned.update_date = date.today()
+                assigned.next_update_date = next_date
+                assigned.save()
+
+            databank = DataBank.objects.filter(lead=lead).first()
+            if databank:
+                databank.followup_date = next_date
+                databank.current_status = response
+                databank.save()
+
+            if file:
+                LeadCallRecord.objects.create(
+                    assignment=assigned,
+                    lead=lead,
+                    record_file=file
+                )
+
+            save_followup_history(
+                lead=lead,
+                company=company,
+                telecaller=employee,
+                status=response,
+            )
+
+            return JsonResponse({'success': True})
+        except Exception as e:
+            print("Error saving follow-up:", e)
+            return JsonResponse({'success': False, 'message': str(e)})
+
+
+def save_followup_history(lead, telecaller, company, status):
+    try:
+        assignment = LeadAssignedToTC.objects.filter(lead=lead, telecaller=telecaller).first()
+        allocated_date = assignment.assign_date if assignment else None
+        note = f"Lead status has been changed to {status}"
+
+        FollowupHistory.objects.create(
+            lead=lead,
+            company=company,
+            telecaller=telecaller,
+            allocated_date=allocated_date,
+            note=note,
+            final_status=status
+        )
+
+    except Exception as e:
+        print("Error saving followup history:", e)
+
+
+
+def get_followup_data(request, lead_id):
+    try:
+        lead = Leads.objects.get(id=lead_id)
+
+        details = FollowupDetails.objects.filter(lead=lead).order_by('-id')
+        history = FollowupHistory.objects.filter(lead=lead).order_by('-id')
+        recordings = LeadCallRecord.objects.filter(lead=lead).order_by('-id')
+
+        details_data = [{
+            "date": str(d.response_date),
+            "response": d.response,
+            "next": str(d.next_followup_date) if d.next_followup_date else "-",
+            "status": d.response_status,
+            "telecaller": d.telecaller.name if d.telecaller else "-"
+        } for d in details]
+
+        history_data = [{
+            "date": str(h.allocated_date),
+            "note": h.note,
+            "status": h.final_status,
+            "telecaller": h.telecaller.name if h.telecaller else "-",
+            "client": h.lead.name if h.lead else "-"
+        } for h in history]
+
+        recordings_data = [{
+            "date": str(r.record_date),
+            "url": r.record_file.url if r.record_file else ""
+        } for r in recordings]
+
+        return JsonResponse({
+            "success": True,
+            "details": details_data,
+            "history": history_data,
+            "recordings": recordings_data
+        })
+    except Exception as e:
+        print("Error in get_followup_data:", str(e))
+        return JsonResponse({"success": False, "message": str(e)})
+
+#// 3 btns
+@csrf_exempt
+def update_lead_status(request):
+    if request.method == 'POST':
+        lead_id = request.POST.get('lead_id')
+        new_status = request.POST.get('status')
+        reason = request.POST.get('reason', '')
+
+        try:
+            lead = Leads.objects.get(id=lead_id)
+            user = LogRegister_Details.objects.get(log_username=request.session.get('tcid'))
+            employee = EmployeeRegister_Details.objects.filter(login=user).first()
+            company = employee.company if employee else None
+
+            assigned = LeadAssignedToTC.objects.filter(lead=lead, telecaller=employee).first()
+            if assigned:
+                assigned.response = new_status
+                assigned.reason = reason if new_status == "Waste Lead" else ""
+                assigned.status = 2 if new_status == "Waste Lead" else 3   #*== leadassignedtotc.status == 2 : waste lead, 3 : Lead Closed
+                assigned.update_date = date.today()
+                assigned.save()
+
+            databank = DataBank.objects.filter(lead=lead).first()
+            if databank:
+                databank.current_status = new_status
+                databank.save()
+
+            if new_status == "Waste Lead":
+                WasteLead.objects.create(
+                    reason=reason,
+                    status=1,
+                    assignment_id=assigned.id,
+                    client_id=assigned.client_id,
+                    databank_id=assigned.databank_id,
+                    lead_id=assigned.lead_id,
+                    telecaller_id=assigned.telecaller_id
+                )
+
+            FollowupHistory.objects.create(
+                lead=lead,
+                company=company,
+                telecaller=employee,
+                allocated_date=timezone.now(),
+                note=f"Lead status has been changed to {new_status}",
+                final_status=new_status
+            )
+
+            return JsonResponse({"success": True})
+
+        except Exception as e:
+            print("Status update error:", e)
+            return JsonResponse({"success": False, "message": str(e)})
+
+
+@csrf_exempt
+def bulk_update_leads(request):
+    if request.method == 'POST':
+        try:
+            lead_ids = json.loads(request.POST.get('lead_ids', '[]'))
+            new_status = request.POST.get('status')
+            reason = request.POST.get('reason', '')
+
+            user = LogRegister_Details.objects.get(log_username=request.session.get('tcid'))
+            employee = EmployeeRegister_Details.objects.filter(login=user).first()
+            company = employee.company if employee else None
+
+            for lid in lead_ids:
+                lead = Leads.objects.get(id=lid)
+                assigned = LeadAssignedToTC.objects.filter(lead=lead, telecaller=employee).first()
+                if assigned:
+                    assigned.response = new_status
+                    assigned.reason = reason if new_status == "Waste Lead" else ""
+                    assigned.status = 2 if new_status == "Waste Lead" else 3
+                    assigned.save()
+
+                databank = DataBank.objects.filter(lead=lead).first()
+                if databank:
+                    databank.current_status = new_status
+                    databank.save()
+
+                if new_status == "Waste Lead":
+                    WasteLead.objects.create(
+                        reason=reason,
+                        status=1,
+                        assignment_id=assigned.id,
+                        client_id=assigned.client_id,
+                        databank_id=assigned.databank_id,
+                        lead_id=assigned.lead_id,
+                        telecaller_id=assigned.telecaller_id
+                    )
+
+                FollowupHistory.objects.create(
+                    lead=lead,
+                    company=company,
+                    telecaller=employee,
+                    allocated_date=timezone.now(),
+                    note=f"Lead status has been changed to {new_status}",
+                    final_status=new_status
+                )
+
+            return JsonResponse({'success': True})
+        except Exception as e:
+            print("Bulk status update error:", e)
+            return JsonResponse({'success': False, 'message': str(e)})
+
+@csrf_exempt
+def recall_lead(request, lead_id):
+    try:
+        lead = Leads.objects.get(id=lead_id)
+        user = LogRegister_Details.objects.get(log_username=request.session.get('tcid'))
+        employee = EmployeeRegister_Details.objects.filter(login=user).first()
+
+        assigned = LeadAssignedToTC.objects.filter(lead=lead, telecaller=employee).first()
+        if assigned:
+            assigned.status = 1
+            assigned.response = "Recalled"
+            assigned.reason = ""
+            assigned.save()
+
+        WasteLead.objects.filter(lead_id=lead.id, telecaller_id=employee.id).delete()
+
+        databank = DataBank.objects.filter(lead=lead).first()
+        if databank:
+            databank.current_status = "Recalled"
+            databank.save()
+
+        FollowupHistory.objects.create(
+            lead=lead,
+            company=employee.company,
+            telecaller=employee,
+            allocated_date=timezone.now(),
+            note="Lead was recalled.",
+            final_status="Recalled"
+        )
+
+        return JsonResponse({"success": True})
+    except Exception as e:
+        print("Recall failed:", e)
+        return JsonResponse({"success": False, "message": str(e)})
+
+
+@csrf_exempt
+def get_all_leads_for_telecaller(request):
+    username = request.session.get('tcid')
+
+    if not username:
+        return JsonResponse({'success': False, 'message': 'Not logged in'})
+
+    login_user = LogRegister_Details.objects.filter(log_username=username).first()
+    telecaller = EmployeeRegister_Details.objects.filter(login=login_user).first()
+
+    all_assignments = LeadAssignedToTC.objects.filter(
+        telecaller=telecaller
+    ).select_related('lead', 'databank').order_by('-assign_date')
+
+    results = []
+    for i, entry in enumerate(all_assignments, 1):
+        lead = entry.lead
+        databank = entry.databank  # now directly from select_related
+
+        results.append({
+            'no': i,
+            'id': lead.id,
+            'assigned_date': entry.assign_date.strftime('%Y-%m-%d'),
+            'name': lead.name,
+            'email': lead.email,
+            'contact': lead.contact,
+            'status': databank.current_status if databank else 'N/A'
+        })
+
+    return JsonResponse({'success': True, 'leads': results})
+
+# ======================================================== end telecaller ============================================================

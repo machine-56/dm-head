@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Clear filters → Reload the page
   document.getElementById('clearFilters')?.addEventListener('click', function () {
-    window.location.reload(); // works cleanest for full reset
+    window.location.reload();
   });
 
   function applyFilters() {
@@ -105,7 +105,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       if (hr === 'all') {
-        // Show all (do nothing)
       } else if (hr === '') {
         if (!isAllocated) {
           visible = false;

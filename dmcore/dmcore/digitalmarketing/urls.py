@@ -13,7 +13,7 @@ urlpatterns = [
     path('teamlead',views.teamlead),
     path('executive',views.executive),
     path('manager',views.manager, name='manager'),
-    path('telecaller',views.telecaller),
+    path('telecaller',views.telecaller, name="telecaller"),
     
     path('departments',views.departments,name='departments'),
     path('departments/edit/<int:dept_id>/', views.edit_department, name='edit_department'),
@@ -120,7 +120,6 @@ urlpatterns = [
 
     # ===================================================== teamlead =====================================================
     # ===================================================== Data Manager =====================================================
-    # !====================== new 13 june ==================
     path('databank/', views.data_bank_view, name='data_bank_view'),
     path('allocation-leads/', views.allocation_leads_page, name='allocation_leads_page'),
     path('follow-up/', views.follow_up_view, name='follow_up_view'),
@@ -136,6 +135,28 @@ urlpatterns = [
     path('get-followup-statuses/', views.get_followup_statuses, name='get_followup_statuses'),
     path('delete-followup-status/<int:status_id>/', views.delete_followup_status, name='delete_followup_status'),
 
-    # ===================================================== Data Manager =====================================================
+    # ===================================================== end Data Manager =====================================================
+
+    # ======================================================== telecaller ========================================================
+    # !====================== new 19 june ==================
+    path('telecaller/all-leads/', views.telecaller_all_leads, name='telecaller_all_leads'),
+    path('telecaller/followups/', views.telecaller_followups_page, name='telecaller_followups_page'),
+    path('waste-leads/', views.telecaller_waste_leads, name='telecaller_waste_leads'),
+    path('closed-leads/', views.closed_leads_page, name='closed_leads_page'),
+    path('telecaller/leads-report/', views.telecaller_leads_report, name='telecaller_leads_report'),
+
+    path('accept-leads/', views.accept_leads, name='accept_leads'),
+    path('lead_data_collection_hr/<int:lead_id>/', views.lead_data_collection_hr, name='lead_data_collection_hr'),
+    path('get-leads-by-date/', views.get_leads_by_date, name='get_leads_by_date'),
+    path('get-lead-details-hr/<int:lead_id>/', views.get_lead_details_hr, name='get_lead_details_hr'),
+    path("submit-followup-update/", views.submit_followup_update, name="submit_followup_update"),
+    path("get-followup-data/<int:lead_id>/", views.get_followup_data, name="get_followup_data"),
+    path("update-lead-status/", views.update_lead_status, name="update_lead_status"),
+    path('bulk-update-leads/', views.bulk_update_leads, name='bulk_update_leads'),
+    path('recall-lead/<int:lead_id>/', views.recall_lead, name='recall_lead'),
+    path('get-all-leads-telecaller/', views.get_all_leads_for_telecaller, name='get_all_leads_telecaller'),
+
+
+    # ====================================================== end telecaller ======================================================
 
 ]
